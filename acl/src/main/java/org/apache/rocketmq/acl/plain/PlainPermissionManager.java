@@ -605,7 +605,10 @@ public class PlainPermissionManager {
         }
 
         if (!accessKeyTable.containsKey(plainAccessResource.getAccessKey())) {
-            throw new AclException(String.format("No acl config for %s", plainAccessResource.getAccessKey()));
+            throw new AclException(String.format(
+                    "ACL validation failed for accessKey '%s'. Please check if the accessKey is defined in the ACL configuration file (plain_acl.yml)",
+                    plainAccessResource.getAccessKey()
+            ));
         }
 
         // Check the white addr for accessKey

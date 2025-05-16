@@ -29,7 +29,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.auth.config.AuthConfig;
-import org.apache.rocketmq.broker.util.SourceCodeUtil;
 import org.apache.rocketmq.common.BrokerConfig;
 import org.apache.rocketmq.common.MQVersion;
 import org.apache.rocketmq.common.MixAll;
@@ -56,6 +55,7 @@ public class BrokerStartup {
     public static BrokerController start(BrokerController controller) {
         try {
             controller.start();
+
             String tip = String.format("The broker[%s, %s] boot success. serializeType=%s",
                 controller.getBrokerConfig().getBrokerName(), controller.getBrokerAddr(),
                 RemotingCommand.getSerializeTypeConfigInThisServer());

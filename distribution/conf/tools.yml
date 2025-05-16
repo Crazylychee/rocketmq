@@ -14,8 +14,6 @@
 #  limitations under the License.
 
 
-accessKey: rocketmq
-secretKey: 1234567
-username: rocketmq
-password: 1234567
-
+accessKey: rocketmq2
+secretKey: 12345678
+    

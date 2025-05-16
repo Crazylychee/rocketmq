@@ -93,7 +93,7 @@
         <project.root>${basedir}</project.root>
 
         <!-- Maven properties -->
-        <maven.test.skip>true</maven.test.skip>
+        <maven.test.skip>false</maven.test.skip>
         <maven.javadoc.skip>true</maven.javadoc.skip>
         <!-- Compiler settings properties -->
         <maven.compiler.source>1.8</maven.compiler.source>
