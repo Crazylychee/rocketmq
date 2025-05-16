@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [ -z "$ROCKETMQ_HOME" ] ; then
+if [ -z "A:/usr/study/javaExample/rocketmq" ] ; then
   ## resolve links - $0 may be a link to maven's home
   PRG="$0"
 
@@ -35,11 +35,11 @@ if [ -z "$ROCKETMQ_HOME" ] ; then
   ROCKETMQ_HOME=`dirname "$PRG"`/..
 
   # make it fully qualified
-  ROCKETMQ_HOME=`cd "$ROCKETMQ_HOME" && pwd`
+  ROCKETMQ_HOME=`cd "A:/usr/study/javaExample/rocketmq" && pwd`
 
   cd "$saveddir"
 fi
 
 export ROCKETMQ_HOME
 
-sh ${ROCKETMQ_HOME}/bin/tools.sh -Drmq.logback.configurationFile=$ROCKETMQ_HOME/conf/rmq.tools.logback.xml org.apache.rocketmq.tools.command.MQAdminStartup "$@"
+sh A:/usr/study/javaExample/rocketmq/bin/tools.sh -Drmq.logback.configurationFile=A:/usr/study/javaExample/rocketmq/conf/rmq.tools.logback.xml org.apache.rocketmq.tools.command.MQAdminStartup "$@"

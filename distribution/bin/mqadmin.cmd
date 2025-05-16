@@ -15,4 +15,4 @@ rem See the License for the specific language governing permissions and
 rem limitations under the License.
 
 if not exist "%ROCKETMQ_HOME%\bin\tools.cmd" echo Please set the ROCKETMQ_HOME variable in your environment! & EXIT /B 1
-call "%ROCKETMQ_HOME%\bin\tools.cmd" -Drmq.logback.configurationFile=%ROCKETMQ_HOME%\conf\rmq.tools.logback.xml org.apache.rocketmq.tools.command.MQAdminStartup %*
+call "A:\usr\study\javaExample\rocketmq\distribution\bin\tools.cmd" -Drmq.logback.configurationFile=A:\usr\study\javaExample\rocketmq\distribution\conf\rmq.tools.logback.xml org.apache.rocketmq.tools.command.MQAdminStartup %*
