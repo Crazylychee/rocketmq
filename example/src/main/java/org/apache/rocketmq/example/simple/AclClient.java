@@ -61,13 +61,14 @@ public class AclClient {
         producer.setNamesrvAddr("127.0.0.1:9876");
         producer.start();
 
-        for (int i = 0; i < 128; i++)
+//        for (int i = 0; i < 128; i++)
+        while (true) {
             try {
                 {
                     Message msg = new Message("TopicTest",
-                        "TagA",
-                        "OrderID188",
-                        "Hello world".getBytes(RemotingHelper.DEFAULT_CHARSET));
+                            "TagA",
+                            "OrderID188",
+                            "Hello world".getBytes(RemotingHelper.DEFAULT_CHARSET));
                     SendResult sendResult = producer.send(msg);
                     System.out.printf("%s%n", sendResult);
                 }
@@ -75,8 +76,8 @@ public class AclClient {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
-        producer.shutdown();
+        }
+//        producer.shutdown();
     }
 
     public static void pushConsumer() throws MQClientException {
