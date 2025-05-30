@@ -51,7 +51,7 @@ public class AclClient {
     private static final String ACL_SECRET_KEY = "1234567";
 
     public static void main(String[] args) throws MQClientException, InterruptedException {
-        producer();
+//        producer();
         pushConsumer();
         pullConsumer();
     }
@@ -91,8 +91,9 @@ public class AclClient {
         consumer.registerMessageListener(new MessageListenerConcurrently() {
 
             @Override
-            public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
+            public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) throws InterruptedException {
                 System.out.printf("%s Receive New Messages: %s %n", Thread.currentThread().getName(), msgs);
+                Thread.sleep(1000);
                 printBody(msgs);
                 return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
             }
@@ -114,6 +115,7 @@ public class AclClient {
                 try {
                     PullResult pullResult =
                         consumer.pullBlockIfNotFound(mq, null, getMessageQueueOffset(mq), 32);
+                    Thread.sleep(1000);
                     System.out.printf("%s%n", pullResult);
                     putMessageQueueOffset(mq, pullResult.getNextBeginOffset());
                     printBody(pullResult);

@@ -726,6 +726,7 @@ public class BrokerController {
                     @Override
                     public void run() {
                         try {
+                            System.out.println(lastSyncTimeMs);
                             if (System.currentTimeMillis() - lastSyncTimeMs > 60 * 1000) {
                                 BrokerController.this.getSlaveSynchronize().syncAll();
                                 lastSyncTimeMs = System.currentTimeMillis();
