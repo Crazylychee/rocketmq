@@ -349,11 +349,17 @@ public class MixAll {
 
     public static Properties string2Properties(final String str) {
         Properties properties = new Properties();
+        String processedStr = str;
+
+        if (isWindows()) {
+            processedStr = str.replace("\\", "\\\\");
+            log.info("Detected Windows OS, escaped backslashes for properties string.");
+        }
         try {
-            InputStream in = new ByteArrayInputStream(str.getBytes(DEFAULT_CHARSET));
+            InputStream in = new ByteArrayInputStream(processedStr.getBytes(DEFAULT_CHARSET));
             properties.load(in);
         } catch (Exception e) {
-            log.error("Failed to handle properties", e);
+            log.error("Failed to handle properties from string: '{}'", processedStr, e);
             return null;
         }
 
