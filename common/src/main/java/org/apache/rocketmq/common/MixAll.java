@@ -35,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
@@ -318,33 +317,19 @@ public class MixAll {
         }
     }
 
-
-    public static String properties2String(final Properties properties, final boolean isSort, final boolean escapeBackslashes) {
-        StringBuilder sb = new StringBuilder();
-        Set<Map.Entry<Object, Object>> entrySet = isSort ? new TreeMap<>(properties).entrySet() : properties.entrySet();
-
-        for (Map.Entry<Object, Object> entry : entrySet) {
-            if (entry.getValue() != null) {
-                String key = entry.getKey().toString();
-                String value = entry.getValue().toString();
-
-                // 在这里添加反斜杠转义逻辑
-                if (escapeBackslashes && value.contains("\\")) {
-                    value = value.replace("\\", "\\\\");
-                }
-
-                sb.append(key).append("=").append(value).append("\n");
-            }
-        }
-        return sb.toString();
+    public static String properties2String(final Properties properties) {
+        return properties2String(properties, false);
     }
 
     public static String properties2String(final Properties properties, final boolean isSort) {
-        return properties2String(properties, isSort, false);
-    }
-
-    public static String properties2String(final Properties properties) {
-        return properties2String(properties, false, false);
+        StringBuilder sb = new StringBuilder();
+        Set<Map.Entry<Object, Object>> entrySet = isSort ? new TreeMap<>(properties).entrySet() : properties.entrySet();
+        for (Map.Entry<Object, Object> entry : entrySet) {
+            if (entry.getValue() != null) {
+                sb.append(entry.getKey().toString() + "=" + entry.getValue().toString() + "\n");
+            }
+        }
+        return sb.toString();
     }
 
     public static Properties string2Properties(final String str) {

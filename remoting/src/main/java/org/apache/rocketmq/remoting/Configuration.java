@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -208,7 +207,7 @@ public class Configuration {
             readWriteLock.readLock().lockInterruptibly();
 
             try {
-                String allConfigs = getAllConfigsInternal(false);
+                String allConfigs = getAllConfigsInternal();
 
                 MixAll.string2File(allConfigs, getStorePath());
             } catch (IOException e) {
@@ -227,7 +226,7 @@ public class Configuration {
 
             try {
 
-                return getAllConfigsInternal(true);
+                return getAllConfigsInternal();
 
             } finally {
                 readWriteLock.readLock().unlock();
@@ -279,7 +278,7 @@ public class Configuration {
         return null;
     }
 
-    private String getAllConfigsInternal(boolean escapeBackslashes) {
+    private String getAllConfigsInternal() {
         StringBuilder stringBuilder = new StringBuilder();
 
         // reload from config object ?
@@ -293,7 +292,7 @@ public class Configuration {
         }
 
         {
-            stringBuilder.append(MixAll.properties2String(this.allConfigs, true,escapeBackslashes));
+            stringBuilder.append(MixAll.properties2String(this.allConfigs, true));
         }
 
         return stringBuilder.toString();
