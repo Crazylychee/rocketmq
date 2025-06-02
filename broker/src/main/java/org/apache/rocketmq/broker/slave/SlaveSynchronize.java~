@@ -1,0 +1,436 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.rocketmq.broker.slave;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.broker.BrokerController;
+import org.apache.rocketmq.broker.loadbalance.MessageRequestModeManager;
+import org.apache.rocketmq.broker.subscription.SubscriptionGroupManager;
+import org.apache.rocketmq.broker.topic.TopicConfigManager;
+import org.apache.rocketmq.common.MixAll;
+import org.apache.rocketmq.common.TopicConfig;
+import org.apache.rocketmq.common.constant.LoggerName;
+import org.apache.rocketmq.logging.org.slf4j.Logger;
+import org.apache.rocketmq.logging.org.slf4j.LoggerFactory;
+import org.apache.rocketmq.remoting.protocol.body.ConsumerOffsetSerializeWrapper;
+import org.apache.rocketmq.remoting.protocol.body.MessageRequestModeSerializeWrapper;
+import org.apache.rocketmq.remoting.protocol.body.SetMessageRequestModeRequestBody;
+import org.apache.rocketmq.remoting.protocol.body.SubscriptionGroupWrapper;
+import org.apache.rocketmq.remoting.protocol.body.TopicConfigAndMappingSerializeWrapper;
+import org.apache.rocketmq.remoting.protocol.subscription.SubscriptionGroupConfig;
+import org.apache.rocketmq.store.config.StorePathConfigHelper;
+import org.apache.rocketmq.store.timer.TimerCheckpoint;
+import org.apache.rocketmq.store.timer.TimerMetrics;
+
+public class SlaveSynchronize {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+    private final BrokerController brokerController;
+    private volatile String masterAddr = null;
+
+    public SlaveSynchronize(BrokerController brokerController) {
+        this.brokerController = brokerController;
+    }
+
+    public String getMasterAddr() {
+        return masterAddr;
+    }
+
+    public void setMasterAddr(String masterAddr) {
+        if (!StringUtils.equals(this.masterAddr, masterAddr)) {
+            LOGGER.info("Update master address from {} to {}", this.masterAddr, masterAddr);
+            this.masterAddr = masterAddr;
+        }
+    }
+
+    public void syncAll() {
+        this.syncTopicConfig();
+        this.syncConsumerOffset();
+        this.syncDelayOffset();
+        this.syncSubscriptionGroupConfig();
+        this.syncMessageRequestMode();
+
+        if (brokerController.getMessageStoreConfig().isTimerWheelEnable()) {
+            this.syncTimerMetrics();
+        }
+    }
+
+    private void syncTopicConfig() {
+        // 1. 备份当前配置的 Master Broker 地址
+        String masterAddrBak = this.masterAddr;
+
+        // 2. 检查 Master 地址是否有效，并且当前 Broker 不是它自己的 Master（即当前 Broker 是 Slave）
+        //    只有满足这两个条件时，才进行后续同步操作。
+        if (masterAddrBak != null && !masterAddrBak.equals(brokerController.getBrokerAddr())) {
+            try {
+                // 3. 尝试从 Master Broker 获取最新的 Topic 配置信息
+                //    brokerController.getBrokerOuterAPI()：获取与外部（如 Master Broker）通信的接口。
+                //    .getAllTopicConfig(masterAddrBak)：向 Master Broker 发送请求，获取所有 Topic 的配置，
+                //    参数是 Master Broker 的地址。返回一个封装了配置数据和版本信息的对象。
+                TopicConfigAndMappingSerializeWrapper topicWrapper =
+                        this.brokerController.getBrokerOuterAPI().getAllTopicConfig(masterAddrBak);
+
+                // 4. 获取当前 Broker 本地的 Topic 配置管理器
+                TopicConfigManager topicConfigManager = this.brokerController.getTopicConfigManager();
+
+                // 5. 检查本地配置版本是否与从 Master 获取的配置版本一致
+                //    topicWrapper.getDataVersion()：获取从 Master 获取的配置数据的版本号。
+                //    topicConfigManager.getDataVersion()：获取本地缓存的 Topic 配置的版本号。
+                //    如果版本号相同，说明本地配置已经是最新，无需更新，直接跳过后续更新逻辑。
+                if (!topicConfigManager.getDataVersion().equals(topicWrapper.getDataVersion())) {
+
+                    // 6. 如果版本号不一致，说明 Master 的配置有更新，需要更新本地配置。
+                    //    首先将本地配置的版本号更新为从 Master 获取的最新版本号。
+                    //    assignNewOne() 方法通常用于原子性地更新版本号。
+                    topicConfigManager.getDataVersion().assignNewOne(topicWrapper.getDataVersion());
+
+                    // 7. 从 Master 获取的配置数据中提取出 Topic 配置的映射表（Map）。
+                    //    key 是 Topic 名称，value 是对应的 TopicConfig 对象。
+                    ConcurrentMap<String, TopicConfig> newTopicConfigTable =
+                            topicWrapper.getTopicConfigTable();
+
+                    // 8. 获取当前 Broker 本地缓存的 Topic 配置映射表。
+                    ConcurrentMap<String, TopicConfig> topicConfigTable =
+                            this.brokerController.getTopicConfigManager().getTopicConfigTable();
+
+                    // 9. 删除本地配置中存在但 Master 配置中不存在的 Topic（即删除过时的 Topic 配置）。
+                    //    topicConfigTable.entrySet()：获取本地配置表的所有键值对集合。
+                    //    .removeIf(item -> !newTopicConfigTable.containsKey(item.getKey()))：
+                    //    使用 Java 8 的 removeIf 方法，遍历本地配置表，删除那些 Key（Topic 名称）
+                    //    不存在于 newTopicConfigTable（从 Master 获取的配置表）中的条目。
+                    topicConfigTable.entrySet().removeIf(item -> !newTopicConfigTable.containsKey(item.getKey()));
+
+                    // 10. 更新或添加本地配置中存在的 Topic 配置，以及新增 Master 中有的 Topic 配置。
+                    //     topicConfigTable.putAll(newTopicConfigTable)：
+                    //     将从 Master 获取的完整 Topic 配置表（newTopicConfigTable）合并到本地配置表（topicConfigTable）中。
+                    //     对于本地已有的 Topic，会用 Master 的配置覆盖；对于本地没有的 Topic，会添加进来。
+                    topicConfigTable.putAll(newTopicConfigTable);
+
+                    // 11. 持久化更新后的 Topic 配置到磁盘。
+                    //     确保即使 Broker 重启，也能加载到最新的 Topic 配置。
+                    this.brokerController.getTopicConfigManager().persist();
+
+                    // 12. 持久化更新后的 Topic 到 Queue 的映射关系到磁盘。
+                    //     Topic 配置的改变可能影响队列映射，需要一并持久化。
+                    this.brokerController.getTopicQueueMappingManager().persist();
+
+                    // 13. 记录 INFO 日志，表明成功从 Master 更新了 Slave 的 Topic 配置。
+                    //     masterAddrBak 是 Master Broker 的地址。
+                    LOGGER.info("Update slave topic config from master, {}", masterAddrBak);
+                }
+            } catch (Exception e) {
+                // 14. 捕获同步过程中可能出现的任何异常（如网络错误、Master 不可达等）。
+                // 15. 记录 ERROR 日志，包含异常信息和 Master 地址，便于排查问题。
+                LOGGER.error("SyncTopicConfig Exception, {}, {}", masterAddrBak, e);
+            }
+        }
+        // 方法结束。如果没有进入 if 语句块，或者同步过程中发生异常，方法也会正常结束。
+    }
+
+
+    private void syncConsumerOffset() {
+        // 1. 备份当前配置的 Master Broker 地址
+        String masterAddrBak = this.masterAddr;
+
+        // 2. 检查 Master 地址是否有效，并且当前 Broker 不是它自己的 Master（即当前 Broker 是 Slave）
+        //    只有满足这两个条件时，才进行后续同步操作。
+        if (masterAddrBak != null && !masterAddrBak.equals(brokerController.getBrokerAddr())) {
+            try {
+                // 3. 尝试从 Master Broker 获取最新的消费者偏移量信息
+                //    brokerController.getBrokerOuterAPI()：获取与外部（如 Master Broker）通信的接口。
+                //    .getAllConsumerOffset(masterAddrBak)：向 Master Broker 发送请求，获取所有消费者组的偏移量信息，
+                //    参数是 Master Broker 的地址。返回一个封装了偏移量数据和版本信息的对象。
+                ConsumerOffsetSerializeWrapper offsetWrapper =
+                        this.brokerController.getBrokerOuterAPI().getAllConsumerOffset(masterAddrBak);
+
+                // 4. 将从 Master 获取的消费者偏移量信息更新到当前 Broker 的内存中。
+                //    this.brokerController.getConsumerOffsetManager()：获取管理消费者偏移量的组件。
+                //    .getOffsetTable()：获取当前 Broker 内存中的消费者偏移量表。
+                //    .putAll(offsetWrapper.getOffsetTable())：将 Master 的偏移量表合并（或替换）到当前表中。
+                this.brokerController.getConsumerOffsetManager().getOffsetTable()
+                        .putAll(offsetWrapper.getOffsetTable());
+
+                // 5. 更新当前 Broker 的消费者偏移量数据的版本号。
+                //    使用从 Master 获取的最新数据的版本号，确保版本一致性。
+                this.brokerController.getConsumerOffsetManager().getDataVersion()
+                        .assignNewOne(offsetWrapper.getDataVersion());
+
+                // 6. 将更新后的消费者偏移量信息持久化到磁盘。
+                //    确保重启后或发生故障时，偏移量数据不会丢失。
+                this.brokerController.getConsumerOffsetManager().persist();
+
+                // 7. 记录 INFO 日志，表明成功从 Master 更新了 Slave 的消费者偏移量。
+                //    masterAddrBak 是 Master Broker 的地址。
+                LOGGER.info("Update slave consumer offset from master, {}", masterAddrBak);
+            } catch (Exception e) {
+                // 8. 捕获同步过程中可能出现的任何异常（如网络错误、Master 不可达等）。
+                // 9. 记录 ERROR 日志，包含异常信息和 Master 地址，便于排查问题。
+                LOGGER.error("SyncConsumerOffset Exception, {}", masterAddrBak, e);
+            }
+        }
+        // 10. 方法结束。如果没有进入 if 语句块，或者同步过程中发生异常，方法也会正常结束。
+    }
+
+
+    private void syncDelayOffset() {
+        // 1. 备份当前配置的 Master Broker 地址
+        String masterAddrBak = this.masterAddr;
+
+        // 2. 检查 Master 地址是否有效，并且当前 Broker 不是它自己的 Master（即当前 Broker 是 Slave）
+        // 只有满足这两个条件时，才进行后续同步操作。
+        if (masterAddrBak != null && !masterAddrBak.equals(brokerController.getBrokerAddr())) {
+            try {
+                // 3. 尝试从 Master Broker 获取最新的延迟消息偏移量信息
+                // brokerController.getBrokerOuterAPI()：获取与外部（如 Master Broker）通信的接口。
+                // .getAllDelayOffset(masterAddrBak)：向 Master Broker 发送请求，获取所有延迟消息的偏移量信息，
+                // 参数是 Master Broker 的地址。返回一个字符串形式的数据。
+                String delayOffset =
+                        this.brokerController.getBrokerOuterAPI().getAllDelayOffset(masterAddrBak);
+
+                // 4. 检查获取到的延迟偏移量数据是否为空。
+                if (delayOffset != null) {
+
+                    // 5. 构造用于存储延迟偏移量数据的文件名。
+                    // StorePathConfigHelper.getDelayOffsetStorePath(...)：根据 Broker 的根存储路径，
+                    // 生成一个专门用于存放延迟偏移量数据的文件路径和文件名。
+                    String fileName =
+                            StorePathConfigHelper.getDelayOffsetStorePath(this.brokerController
+                                    .getMessageStoreConfig().getStorePathRootDir());
+
+                    try {
+                        // 6. 将获取到的延迟偏移量字符串数据写入到指定的文件中。
+                        // MixAll.string2File(delayOffset, fileName)：这是一个工具方法，将字符串内容写入文件。
+                        MixAll.string2File(delayOffset, fileName);
+
+                        // 7. 通知延迟消息服务加载（或应用）刚刚同步过来的偏移量数据。
+                        // this.brokerController.getScheduleMessageService()：获取负责处理延迟和定时消息的服务。
+                        // .loadWhenSyncDelayOffset()：调用该服务的一个方法，使其根据新加载的偏移量数据更新内部状态。
+                        this.brokerController.getScheduleMessageService().loadWhenSyncDelayOffset();
+                    } catch (IOException e) {
+                        // 8. 捕获在写入文件过程中可能发生的 IO 异常。
+                        // 9. 记录 ERROR 日志，包含异常信息和目标文件名，便于排查问题。
+                        LOGGER.error("Persist file Exception, {}", fileName, e);
+                    }
+                }
+                // 10. 记录 INFO 日志，表明成功从 Master 更新了 Slave 的延迟消息偏移量。
+                // masterAddrBak 是 Master Broker 的地址。
+                LOGGER.info("Update slave delay offset from master, {}", masterAddrBak);
+            } catch (Exception e) {
+                // 11. 捕获同步过程中可能出现的任何异常（如网络错误、Master 不可达等）。
+                // 12. 记录 ERROR 日志，包含异常信息和 Master 地址，便于排查问题。
+                LOGGER.error("SyncDelayOffset Exception, {}", masterAddrBak, e);
+            }
+        }
+        // 13. 方法结束。如果没有进入 if 语句块，或者同步过程中发生异常，方法也会正常结束。
+    }
+
+
+    private void syncSubscriptionGroupConfig() {
+        // 1. 备份当前配置的 Master Broker 地址
+        String masterAddrBak = this.masterAddr;
+
+        // 2. 检查 Master 地址是否有效，并且当前 Broker 不是它自己的 Master（即当前 Broker 是 Slave）
+        // 只有满足这两个条件时，才进行后续同步操作。
+        if (masterAddrBak != null && !masterAddrBak.equals(brokerController.getBrokerAddr())) {
+            try {
+                // 3. 尝试从 Master Broker 获取最新的订阅组配置信息
+                // brokerController.getBrokerOuterAPI()：获取与外部（如 Master Broker）通信的接口。
+                // .getAllSubscriptionGroupConfig(masterAddrBak)：向 Master Broker 发送请求，获取所有订阅组的配置信息，
+                // 参数是 Master Broker 的地址。返回一个封装了订阅组配置和版本信息的对象。
+                SubscriptionGroupWrapper subscriptionWrapper =
+                        this.brokerController.getBrokerOuterAPI()
+                                .getAllSubscriptionGroupConfig(masterAddrBak);
+
+                // 4. 检查本地订阅组配置的版本号是否与从 Master 获取的版本号一致。
+                // 如果版本号一致，说明本地配置是最新的，无需更新，直接跳过下面的代码。
+                if (!this.brokerController.getSubscriptionGroupManager().getDataVersion()
+                        .equals(subscriptionWrapper.getDataVersion())) {
+                    // 5. 如果版本号不一致，说明 Master 上的订阅组配置有更新，需要同步。
+                    // 获取本地的订阅组管理器。
+                    SubscriptionGroupManager subscriptionGroupManager = this.brokerController.getSubscriptionGroupManager();
+
+                    // 6. 更新本地的版本号，标记为最新的版本。
+                    subscriptionGroupManager.getDataVersion().assignNewOne(subscriptionWrapper.getDataVersion());
+
+                    // 7. 获取当前本地保存的订阅组配置表（键为订阅组名称，值为配置对象）。
+                    ConcurrentMap<String, SubscriptionGroupConfig> curSubscriptionGroupTable =
+                            subscriptionGroupManager.getSubscriptionGroupTable();
+
+                    // 8. 获取从 Master 获取的最新订阅组配置表。
+                    ConcurrentMap<String, SubscriptionGroupConfig> newSubscriptionGroupTable =
+                            subscriptionWrapper.getSubscriptionGroupTable();
+
+                    // 9. 删除本地配置中，但在 Master 配置中不存在的订阅组配置（即处理删除操作）。
+                    // 获取本地配置表的迭代器。
+                    Iterator<Map.Entry<String, SubscriptionGroupConfig>> iterator = curSubscriptionGroupTable.entrySet().iterator();
+                    while (iterator.hasNext()) {
+                        Map.Entry<String, SubscriptionGroupConfig> configEntry = iterator.next();
+                        // 如果当前订阅组在新的配置表中不存在
+                        if (!newSubscriptionGroupTable.containsKey(configEntry.getKey())) {
+                            // 从本地内存的配置表中移除该配置。
+                            iterator.remove();
+                            // 并通知订阅组管理器，该订阅组配置已被删除（可能用于清理相关资源或状态）。
+                            subscriptionGroupManager.deleteSubscriptionGroupConfig(configEntry.getKey());
+                        }
+                    }
+
+                    // 10. 更新或新增本地配置中，与 Master 配置一致的订阅组配置（即处理更新和新增操作）。
+                    // 遍历 Master 上的最新配置表。
+                    newSubscriptionGroupTable.values().forEach(subscriptionGroupManager::updateSubscriptionGroupConfigWithoutPersist);
+                    // 对于每个配置，调用管理器的更新方法（WithoutPersist 表示暂时不持久化到磁盘，待后续统一持久化）。
+
+                    // 11. 将更新后的本地订阅组配置持久化到磁盘。
+                    subscriptionGroupManager.persist();
+                    // 12. 记录 INFO 日志，表明成功从 Master 更新了 Slave 的订阅组配置。
+                    // masterAddrBak 是 Master Broker 的地址。
+                    LOGGER.info("Update slave Subscription Group from master, {}", masterAddrBak);
+                }
+            } catch (Exception e) {
+                // 13. 捕获同步过程中可能出现的任何异常（如网络错误、Master 不可达等）。
+                // 14. 记录 ERROR 日志，包含异常信息和 Master 地址，便于排查问题。
+                LOGGER.error("SyncSubscriptionGroup Exception, {}", masterAddrBak, e);
+            }
+        }
+        // 15. 方法结束。如果没有进入 if 语句块，或者同步过程中发生异常，方法也会正常结束。
+    }
+
+
+    private void syncMessageRequestMode() {
+        // 1. 备份当前配置的 Master Broker 地址
+        String masterAddrBak = this.masterAddr;
+
+        // 2. 检查 Master 地址是否有效，并且当前 Broker 不是它自己的 Master（即当前 Broker 是 Slave）
+        // 只有满足这两个条件时，才进行后续同步操作。
+        if (masterAddrBak != null && !masterAddrBak.equals(brokerController.getBrokerAddr())) {
+            try {
+                // 3. 尝试从 Master Broker 获取最新的消息请求模式配置信息
+                // brokerController.getBrokerOuterAPI()：获取与外部（如 Master Broker）通信的接口。
+                // .getAllMessageRequestMode(masterAddrBak)：向 Master Broker 发送请求，获取所有消息请求模式的配置信息，
+                // 参数是 Master Broker 的地址。返回一个封装了这些信息的对象。
+                MessageRequestModeSerializeWrapper messageRequestModeSerializeWrapper =
+                        this.brokerController.getBrokerOuterAPI().getAllMessageRequestMode(masterAddrBak);
+
+                // 4. 获取当前 Broker 本地的消息请求模式管理器
+                MessageRequestModeManager messageRequestModeManager =
+                        this.brokerController.getQueryAssignmentProcessor().getMessageRequestModeManager();
+
+                // 5. 获取本地当前存储的消息请求模式配置映射表
+                ConcurrentHashMap<String, ConcurrentHashMap<String, SetMessageRequestModeRequestBody>> curMessageRequestModeMap =
+                        messageRequestModeManager.getMessageRequestModeMap();
+
+                // 6. 从 Master 获取的消息请求模式配置映射表
+                ConcurrentHashMap<String, ConcurrentHashMap<String, SetMessageRequestModeRequestBody>> newMessageRequestModeMap =
+                        messageRequestModeSerializeWrapper.getMessageRequestModeMap();
+
+                // 7. 同步逻辑开始：比较并更新本地配置以匹配 Master 的配置
+
+                // 8. 删除本地存在但 Master 不存在的配置项
+                // 遍历当前配置的键，如果该键在新配置中不存在，则从当前配置中移除该项。
+                curMessageRequestModeMap.entrySet().removeIf(e -> !newMessageRequestModeMap.containsKey(e.getKey()));
+
+                // 9. 更新或新增配置项
+                // 将新配置映射表中的所有条目合并到当前配置映射表中。
+                // 如果键已存在，则新值会覆盖旧值；如果键不存在，则新增条目。
+                curMessageRequestModeMap.putAll(newMessageRequestModeMap);
+
+                // 10. 持久化更新后的配置到本地存储
+                messageRequestModeManager.persist();
+
+                // 11. 记录 INFO 日志，表示成功从 Master 同步了消息请求模式配置。
+                LOGGER.info("Update slave Message Request Mode from master, {}", masterAddrBak);
+            } catch (Exception e) {
+                // 12. 捕获同步过程中可能出现的任何异常（如网络错误、Master 不可达等）。
+                // 13. 记录 ERROR 日志，包含异常信息和 Master 地址，便于排查问题。
+                LOGGER.error("SyncMessageRequestMode Exception, {}", masterAddrBak, e);
+            }
+        }
+        // 14. 方法结束。如果没有进入 if 语句块，或者同步过程中发生异常，方法也会正常结束。
+    }
+
+
+    public void syncTimerCheckPoint() {
+        // 1. 备份当前配置的 Master Broker 地址
+        String masterAddrBak = this.masterAddr;
+
+        // 2. 检查 Master 地址是否有效（非 null）
+        // 只有 Master 地址有效时，才进行后续同步操作。
+        if (masterAddrBak != null) {
+            try {
+                // 3. 检查当前 Broker 是否启用了定时消息（Timer Message）功能，
+                // 并且当前 Broker 不应该运行定时消息的出队（dequeue）任务。
+                // brokerController.getMessageStore().getTimerMessageStore()：获取定时消息存储实例。
+                // null != ...：检查定时消息功能是否已启用。
+                // !brokerController.getTimerMessageStore().isShouldRunningDequeue()：检查当前 Broker 是否不适合执行定时消息的出队任务。
+                // （这通常意味着当前 Broker 是 Slave，或者主任务正在其他地方运行）。
+                if (null != brokerController.getMessageStore().getTimerMessageStore() &&
+                        !brokerController.getTimerMessageStore().isShouldRunningDequeue()) {
+
+                    // 4. 如果条件满足，则尝试从 Master Broker 获取最新的定时检查点（Timer Checkpoint）信息。
+                    // brokerController.getBrokerOuterAPI()：获取与外部（如 Master Broker）通信的接口。
+                    // .getTimerCheckPoint(masterAddrBak)：向 Master Broker 发送请求，获取其保存的 Timer Checkpoint。
+                    // 参数是 Master Broker 的地址。返回一个 TimerCheckpoint 对象，包含 Master 的处理进度信息。
+                    TimerCheckpoint checkpoint = this.brokerController.getBrokerOuterAPI().getTimerCheckPoint(masterAddrBak);
+
+                    // 5. 检查本地是否已经存在 Timer Checkpoint 实例。
+                    if (null != this.brokerController.getTimerCheckpoint()) {
+                        // 6. 如果本地存在 Timer Checkpoint，则用从 Master 获取的最新信息更新本地实例。
+                        // this.brokerController.getTimerCheckpoint()：获取本地的 Timer Checkpoint 实例。
+                        // .setLastReadTimeMs(checkpoint.getLastReadTimeMs())：更新本地实例的“最后读取时间”。
+                        // .setMasterTimerQueueOffset(checkpoint.getMasterTimerQueueOffset())：更新本地实例的“Master 定时队列偏移量”。
+                        // 这个偏移量代表了 Master Broker 处理定时消息队列的进度。
+                        // .getDataVersion().assignNewOne(checkpoint.getDataVersion())：更新本地实例的数据版本号，以匹配 Master 的版本。
+                        // 这通常用于版本控制，确保数据的一致性。
+                        this.brokerController.getTimerCheckpoint().setLastReadTimeMs(checkpoint.getLastReadTimeMs());
+                        this.brokerController.getTimerCheckpoint().setMasterTimerQueueOffset(checkpoint.getMasterTimerQueueOffset());
+                        this.brokerController.getTimerCheckpoint().getDataVersion().assignNewOne(checkpoint.getDataVersion());
+                    }
+                }
+            } catch (Exception e) {
+                // 7. 捕获同步过程中可能出现的任何异常（如网络错误、Master 不可达等）。
+                // 8. 记录 ERROR 日志，包含异常信息和 Master 地址，便于排查问题。
+                LOGGER.error("syncTimerCheckPoint Exception, {}", masterAddrBak, e);
+            }
+        }
+        // 9. 方法结束。
+    }
+
+
+    private void syncTimerMetrics() {
+        String masterAddrBak = this.masterAddr;
+        if (masterAddrBak != null) {
+            try {
+                if (null != brokerController.getMessageStore().getTimerMessageStore()) {
+                    TimerMetrics.TimerMetricsSerializeWrapper metricsSerializeWrapper =
+                            this.brokerController.getBrokerOuterAPI().getTimerMetrics(masterAddrBak);
+                    if (!brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().getDataVersion().equals(metricsSerializeWrapper.getDataVersion())) {
+                        this.brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().getDataVersion().assignNewOne(metricsSerializeWrapper.getDataVersion());
+                        this.brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().getTimingCount().clear();
+                        this.brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().getTimingCount().putAll(metricsSerializeWrapper.getTimingCount());
+                        this.brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().persist();
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.error("SyncTimerMetrics Exception, {}", masterAddrBak, e);
+            }
+        }
+    }
+}
