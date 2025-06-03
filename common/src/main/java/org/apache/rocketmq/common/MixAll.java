@@ -334,17 +334,11 @@ public class MixAll {
 
     public static Properties string2Properties(final String str) {
         Properties properties = new Properties();
-        String processedStr = str;
-
-        if (isWindows()) {
-            processedStr = str.replace("\\", "\\\\");
-            log.info("Detected Windows OS, escaped backslashes for properties string.");
-        }
         try {
-            InputStream in = new ByteArrayInputStream(processedStr.getBytes(DEFAULT_CHARSET));
+            InputStream in = new ByteArrayInputStream(str.getBytes(DEFAULT_CHARSET));
             properties.load(in);
         } catch (Exception e) {
-            log.error("Failed to handle properties from string: '{}'", processedStr, e);
+            log.error("Failed to handle properties", e);
             return null;
         }
 
@@ -562,5 +556,14 @@ public class MixAll {
         return !topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)
             && !topic.startsWith(TopicValidator.SYSTEM_TOPIC_PREFIX)
             && !topic.equals(TopicValidator.RMQ_SYS_SCHEDULE_TOPIC);
+    }
+
+    public static String adjustConfigForPlatform(String config) {
+        if (StringUtils.isNotBlank(config)) {
+            if (isWindows()) {
+                config = config.replace("\\", "\\\\");
+            }
+        }
+        return config;
     }
 }
