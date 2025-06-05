@@ -83,6 +83,10 @@ public class ControllerStartup {
 
         if (commandLine.hasOption('c')) {
             String file = commandLine.getOptionValue('c');
+            //记录时间
+//            long startTime = System.currentTimeMillis();
+//            file = MixAll.adjustConfigForPlatform(file);
+//            System.out.println(System.currentTimeMillis() - startTime + "ms: load config file: " + file);
             if (file != null) {
                 InputStream in = new BufferedInputStream(new FileInputStream(file));
                 properties = new Properties();
