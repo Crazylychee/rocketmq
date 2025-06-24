@@ -498,32 +498,50 @@ public class TopicConfigManager extends ConfigManager {
     }
 
     public void updateSingleTopicConfigWithoutPersist(final TopicConfig topicConfig) {
+        // 检查传入的主题配置对象是否为空，防止空指针异常
         checkNotNull(topicConfig, "topicConfig shouldn't be null");
 
+        // 根据传入的主题配置对象，获取新的属性映射
         Map<String, String> newAttributes = request(topicConfig);
+        // 获取当前主题（基于主题名）已有的属性映射
         Map<String, String> currentAttributes = current(topicConfig.getTopicName());
 
+        // 计算最终的主题属性：
+        // 1. 判断主题是否是新的（topicConfigTable中不存在）
+        // 2. 使用 TopicAttributes.ALL 作为要修改的属性集
+        // 3. 将当前属性和新属性都转换为不可变映射（ImmutableMap）以确保线程安全
+        // 4. 调用 AttributeUtil.alterCurrentAttributes 方法合并新旧属性
         Map<String, String> finalAttributes = AttributeUtil.alterCurrentAttributes(
-            this.topicConfigTable.get(topicConfig.getTopicName()) == null,
-            TopicAttributes.ALL,
-            ImmutableMap.copyOf(currentAttributes),
-            ImmutableMap.copyOf(newAttributes));
+                this.topicConfigTable.get(topicConfig.getTopicName()) == null,
+                TopicAttributes.ALL,
+                ImmutableMap.copyOf(currentAttributes),
+                ImmutableMap.copyOf(newAttributes));
 
+        // 将计算出的最终属性设置回传入的主题配置对象中
         topicConfig.setAttributes(finalAttributes);
+        // 更新分层存储（Tiered Storage）中的主题元数据，使用新的属性
         updateTieredStoreTopicMetadata(topicConfig, newAttributes);
 
+        // 将更新后的主题配置放入内存中的主题配置表（topicConfigTable）
+        // 如果主题已存在，则返回旧的主题配置对象；如果主题是新的，则返回null
         TopicConfig old = putTopicConfig(topicConfig);
         if (old != null) {
+            // 如果返回了旧配置，说明是更新操作，记录日志
             log.info("update topic config, old:[{}] new:[{}]", old, topicConfig);
         } else {
+            // 如果返回null，说明是创建新主题操作，记录日志
             log.info("create new topic [{}]", topicConfig);
         }
 
+        // 更新内部的数据版本号，通常用于检测数据变化或实现乐观锁
         updateDataVersion();
     }
 
+
     public void updateTopicConfig(final TopicConfig topicConfig) {
+        //更新 Broker 内存中的主题配置，但是 不进行持久化（即不立即写入磁盘）
         updateSingleTopicConfigWithoutPersist(topicConfig);
+        //这个方法的作用是将更新后的主题配置 写入到磁盘存储 中
         this.persist(topicConfig.getTopicName(), topicConfig);
     }
 

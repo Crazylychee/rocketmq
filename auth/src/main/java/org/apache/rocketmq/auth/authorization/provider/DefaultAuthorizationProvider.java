@@ -36,7 +36,9 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+//类的主要作用是提供授权功能，包括初始化授权配置、创建授权上下文、
+// 处理授权请求以及记录审计日志。它通过处理链的方式，将授权请求传递给不同的处理器进行处理，
+// 确保消息的发送和接收操作是经过授权的。
 public class DefaultAuthorizationProvider implements AuthorizationProvider<DefaultAuthorizationContext> {
 
     protected final Logger log = LoggerFactory.getLogger(LoggerName.ROCKETMQ_AUTH_AUDIT_LOGGER_NAME);
@@ -71,7 +73,7 @@ public class DefaultAuthorizationProvider implements AuthorizationProvider<Defau
     public List<DefaultAuthorizationContext> newContexts(ChannelHandlerContext context, RemotingCommand command) {
         return this.authorizationContextBuilder.build(context, command);
     }
-
+    //责任链模式
     protected HandlerChain<DefaultAuthorizationContext, CompletableFuture<Void>> newHandlerChain() {
         return HandlerChain.<DefaultAuthorizationContext, CompletableFuture<Void>>create()
             .addNext(new UserAuthorizationHandler(authConfig, metadataService))

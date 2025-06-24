@@ -38,7 +38,7 @@ import org.apache.rocketmq.common.chain.Handler;
 import org.apache.rocketmq.common.chain.HandlerChain;
 import org.apache.rocketmq.common.resource.ResourcePattern;
 import org.apache.rocketmq.common.resource.ResourceType;
-
+//授权
 public class AclAuthorizationHandler implements Handler<DefaultAuthorizationContext, CompletableFuture<Void>> {
 
     private final AuthorizationMetadataProvider authorizationMetadataProvider;
@@ -46,7 +46,10 @@ public class AclAuthorizationHandler implements Handler<DefaultAuthorizationCont
     public AclAuthorizationHandler(AuthConfig config) {
         this.authorizationMetadataProvider = AuthorizationFactory.getMetadataProvider(config);
     }
-
+    /**
+     * 构造函数，使用 AuthConfig 配置初始化授权元数据提供者
+     * @param config 认证配置
+     */
     public AclAuthorizationHandler(AuthConfig config, Supplier<?> metadataService) {
         this.authorizationMetadataProvider = AuthorizationFactory.getMetadataProvider(config, metadataService);
     }
@@ -59,21 +62,25 @@ public class AclAuthorizationHandler implements Handler<DefaultAuthorizationCont
         }
         return this.authorizationMetadataProvider.getAcl(context.getSubject()).thenAccept(acl -> {
             if (acl == null) {
+                System.out.println("acl is null, skip authorization.");
                 throwException(context, "no matched policies.");
             }
 
             // 1. get the defined acl entries which match the request.
             PolicyEntry matchedEntry = matchPolicyEntries(context, acl);
 
-            // 2. if no matched acl entries, return deny
+            // 如果没有匹配的策略条目，抛出一个异常，提示没有匹配的策略。也就是拒绝
             if (matchedEntry == null) {
+                System.out.println("no matched policies.");
                 throwException(context, "no matched policies.");
             }
 
-            // 3. judge is the entries has denied decision.
+            // 检查决策是否为拒绝
             if (matchedEntry.getDecision() == Decision.DENY) {
+                System.out.println("the decision is deny.");
                 throwException(context, "the decision is deny.");
             }
+            System.out.println("the decision is allow, matched entry: " + matchedEntry);
         });
     }
 

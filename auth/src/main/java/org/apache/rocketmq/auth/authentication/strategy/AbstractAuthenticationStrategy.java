@@ -26,7 +26,7 @@ import org.apache.rocketmq.auth.authentication.factory.AuthenticationFactory;
 import org.apache.rocketmq.auth.authentication.provider.AuthenticationProvider;
 import org.apache.rocketmq.auth.config.AuthConfig;
 import org.apache.rocketmq.common.utils.ExceptionUtils;
-
+//认证策略
 public abstract class AbstractAuthenticationStrategy implements AuthenticationStrategy {
 
     protected final AuthConfig authConfig;

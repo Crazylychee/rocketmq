@@ -160,6 +160,7 @@ public class AuthConfig implements Cloneable {
     }
 
     public boolean isAuthorizationEnabled() {
+        System.out.println("authorizationEnabled:" + authorizationEnabled);
         return authorizationEnabled;
     }
 

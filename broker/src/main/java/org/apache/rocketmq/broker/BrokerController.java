@@ -345,18 +345,37 @@ public class BrokerController {
         this.brokerStatsManager = messageStoreConfig.isEnableLmq() ? new LmqBrokerStatsManager(this.brokerConfig) : new BrokerStatsManager(this.brokerConfig.getBrokerClusterName(), this.brokerConfig.isEnableDetailStat());
         this.broadcastOffsetManager = new BroadcastOffsetManager(this);
         if (ConfigManagerVersion.V2.getVersion().equals(brokerConfig.getConfigManagerVersion())) {
-            this.configStorage = new ConfigStorage(messageStoreConfig);
-            this.topicConfigManager = new TopicConfigManagerV2(this, configStorage);
-            this.subscriptionGroupManager = new SubscriptionGroupManagerV2(this, configStorage);
-            this.consumerOffsetManager = new ConsumerOffsetManagerV2(this, configStorage);
+            // 分支 1: 使用 V2 版本的配置管理器
+            this.configStorage = new ConfigStorage(messageStoreConfig); // 创建一个基础配置存储
+            this.topicConfigManager = new TopicConfigManagerV2(this, configStorage); // 使用 V2 版本的主题配置管理器
+            this.subscriptionGroupManager = new SubscriptionGroupManagerV2(this, configStorage); // 使用 V2 版本的订阅组管理器
+            this.consumerOffsetManager = new ConsumerOffsetManagerV2(this, configStorage); // 使用 V2 版本的消费者位移管理器
         } else if (this.messageStoreConfig.isEnableRocksDBStore()) {
-            this.topicConfigManager = messageStoreConfig.isEnableLmq() ? new RocksDBLmqTopicConfigManager(this) : new RocksDBTopicConfigManager(this);
-            this.subscriptionGroupManager = messageStoreConfig.isEnableLmq() ? new RocksDBLmqSubscriptionGroupManager(this) : new RocksDBSubscriptionGroupManager(this);
+            // 分支 2: 如果不是 V2 版本，并且启用了 RocksDB 存储
+            // 根据是否启用 LMQ 来选择具体的实现类
+            this.topicConfigManager = messageStoreConfig.isEnableLmq() ?
+                    new RocksDBLmqTopicConfigManager(this) :
+                    new RocksDBTopicConfigManager(this);
+            // 根据是否启用 LMQ 来选择具体的实现类
+            this.subscriptionGroupManager = messageStoreConfig.isEnableLmq() ?
+                    new RocksDBLmqSubscriptionGroupManager(this) :
+                    new RocksDBSubscriptionGroupManager(this);
+            // 使用 RocksDB 存储消费者位移
             this.consumerOffsetManager = new RocksDBConsumerOffsetManager(this);
         } else {
-            this.topicConfigManager = messageStoreConfig.isEnableLmq() ? new LmqTopicConfigManager(this) : new TopicConfigManager(this);
-            this.subscriptionGroupManager = messageStoreConfig.isEnableLmq() ? new LmqSubscriptionGroupManager(this) : new SubscriptionGroupManager(this);
-            this.consumerOffsetManager = messageStoreConfig.isEnableLmq() ? new LmqConsumerOffsetManager(this) : new ConsumerOffsetManager(this);
+            // 分支 3: 如果不是 V2 版本，也没有启用 RocksDB 存储（默认使用文件存储）
+            // 根据是否启用 LMQ 来选择具体的实现类
+            this.topicConfigManager = messageStoreConfig.isEnableLmq() ?
+                    new LmqTopicConfigManager(this) :
+                    new TopicConfigManager(this);
+            // 根据是否启用 LMQ 来选择具体的实现类
+            this.subscriptionGroupManager = messageStoreConfig.isEnableLmq() ?
+                    new LmqSubscriptionGroupManager(this) :
+                    new SubscriptionGroupManager(this);
+            // 使用默认的消费者位移管理器（通常是文件存储）
+            this.consumerOffsetManager = messageStoreConfig.isEnableLmq() ?
+                    new LmqConsumerOffsetManager(this) :
+                    new ConsumerOffsetManager(this);
         }
         this.topicQueueMappingManager = new TopicQueueMappingManager(this);
         this.authenticationMetadataManager = AuthenticationFactory.getMetadataManager(this.authConfig);
@@ -730,6 +749,7 @@ public class BrokerController {
                             if (System.currentTimeMillis() - lastSyncTimeMs > 60 * 1000) {
                                 BrokerController.this.getSlaveSynchronize().syncAll();
                                 lastSyncTimeMs = System.currentTimeMillis();
+                                System.out.println("brokerController syncAll "+System.currentTimeMillis());
                             }
 
                             //timer checkpoint, latency-sensitive, so sync it more frequently
@@ -1057,7 +1077,7 @@ public class BrokerController {
             this.registerServerRPCHook(rpcHook);
         }
     }
-
+    //初始化请求处理管道，并在管道中添加授权和认证逻辑
     private void initialRequestPipeline() {
         if (this.authConfig == null) {
             return;

@@ -126,6 +126,15 @@ public class Resource {
     }
 
     @Override
+    public String toString() {
+        return "Resource{" +
+                "resourceType=" + resourceType.getName() +
+                ", resourceName='" + resourceName + '\'' +
+                ", resourcePattern=" + resourcePattern.getName() +
+                '}';
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o)
             return true;

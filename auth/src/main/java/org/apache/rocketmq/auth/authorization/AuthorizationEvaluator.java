@@ -23,7 +23,8 @@ import org.apache.rocketmq.auth.authorization.context.AuthorizationContext;
 import org.apache.rocketmq.auth.authorization.factory.AuthorizationFactory;
 import org.apache.rocketmq.auth.authorization.strategy.AuthorizationStrategy;
 import org.apache.rocketmq.auth.config.AuthConfig;
-
+//用于评估授权策略。
+//主要功能是封装授权评估逻辑，并提供一个简单的方法来评估多个授权上下文
 public class AuthorizationEvaluator {
 
     private final AuthorizationStrategy authorizationStrategy;

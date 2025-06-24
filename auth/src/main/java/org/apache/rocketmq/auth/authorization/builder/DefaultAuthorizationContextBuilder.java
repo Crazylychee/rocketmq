@@ -180,7 +180,9 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
 
             Resource topic;
             Resource group;
+            System.out.println(command.getCode());
             switch (command.getCode()) {
+                //得到topic路由信息
                 case RequestCode.GET_ROUTEINFO_BY_TOPIC:
                     if (NamespaceUtil.isRetryTopic(fields.get(TOPIC))) {
                         group = Resource.ofGroup(fields.get(TOPIC));
@@ -190,6 +192,7 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                         result.add(DefaultAuthorizationContext.of(subject, topic, Arrays.asList(Action.PUB, Action.SUB, Action.GET), sourceIp));
                     }
                     break;
+                    //发送消息
                 case RequestCode.SEND_MESSAGE:
                     if (NamespaceUtil.isRetryTopic(fields.get(TOPIC))) {
                         if (StringUtils.isNotBlank(fields.get(GROUP))) {
@@ -203,7 +206,9 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                         result.add(DefaultAuthorizationContext.of(subject, topic, Action.PUB, sourceIp));
                     }
                     break;
+                    //发送消息(第二版？)
                 case RequestCode.SEND_MESSAGE_V2:
+                    //批量发送消息
                 case RequestCode.SEND_BATCH_MESSAGE:
                     if (NamespaceUtil.isRetryTopic(fields.get(B))) {
                         if (StringUtils.isNotBlank(fields.get(A))) {
@@ -217,20 +222,24 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                         result.add(DefaultAuthorizationContext.of(subject, topic, Action.PUB, sourceIp));
                     }
                     break;
+                    //重新发送？
                 case RequestCode.RECALL_MESSAGE:
                     topic = Resource.ofTopic(fields.get(TOPIC));
                     result.add(DefaultAuthorizationContext.of(subject, topic, Action.PUB, sourceIp));
                     break;
+                    //结束事务？
                 case RequestCode.END_TRANSACTION:
                     if (StringUtils.isNotBlank(fields.get(TOPIC))) {
                         topic = Resource.ofTopic(fields.get(TOPIC));
                         result.add(DefaultAuthorizationContext.of(subject, topic, Action.PUB, sourceIp));
                     }
                     break;
+                    //用于表示消费者将消息发送回生产者或Broker的状态码。它通常用于消息重试、消息回滚或消息反馈等场景，以便实现更灵活的消息处理机制。
                 case RequestCode.CONSUMER_SEND_MSG_BACK:
                     group = Resource.ofGroup(fields.get(GROUP));
                     result.add(DefaultAuthorizationContext.of(subject, group, Action.SUB, sourceIp));
                     break;
+                    //拉取消息
                 case RequestCode.PULL_MESSAGE:
                     if (!NamespaceUtil.isRetryTopic(fields.get(TOPIC))) {
                         topic = Resource.ofTopic(fields.get(TOPIC));
@@ -239,10 +248,12 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                     group = Resource.ofGroup(fields.get(CONSUMER_GROUP));
                     result.add(DefaultAuthorizationContext.of(subject, group, Action.SUB, sourceIp));
                     break;
+                    //查询消息
                 case RequestCode.QUERY_MESSAGE:
                     topic = Resource.ofTopic(fields.get(TOPIC));
                     result.add(DefaultAuthorizationContext.of(subject, topic, Arrays.asList(Action.SUB, Action.GET), sourceIp));
                     break;
+                    //心跳
                 case RequestCode.HEART_BEAT:
                     HeartbeatData heartbeatData = HeartbeatData.decode(command.getBody(), HeartbeatData.class);
                     for (ConsumerData data : heartbeatData.getConsumerDataSet()) {
@@ -257,6 +268,7 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                         }
                     }
                     break;
+                    //注销客户端
                 case RequestCode.UNREGISTER_CLIENT:
                     final UnregisterClientRequestHeader unregisterClientRequestHeader =
                         command.decodeCommandCustomHeader(UnregisterClientRequestHeader.class);
@@ -265,12 +277,14 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                         result.add(DefaultAuthorizationContext.of(subject, group, Action.SUB, sourceIp));
                     }
                     break;
+                    //查询消费者列表
                 case RequestCode.GET_CONSUMER_LIST_BY_GROUP:
                     final GetConsumerListByGroupRequestHeader getConsumerListByGroupRequestHeader =
                         command.decodeCommandCustomHeader(GetConsumerListByGroupRequestHeader.class);
                     group = Resource.ofGroup(getConsumerListByGroupRequestHeader.getConsumerGroup());
                     result.add(DefaultAuthorizationContext.of(subject, group, Arrays.asList(Action.SUB, Action.GET), sourceIp));
                     break;
+                    //查询消费者偏移
                 case RequestCode.QUERY_CONSUMER_OFFSET:
                     final QueryConsumerOffsetRequestHeader queryConsumerOffsetRequestHeader =
                         command.decodeCommandCustomHeader(QueryConsumerOffsetRequestHeader.class);
@@ -281,6 +295,7 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                     group = Resource.ofGroup(queryConsumerOffsetRequestHeader.getConsumerGroup());
                     result.add(DefaultAuthorizationContext.of(subject, group, Arrays.asList(Action.SUB, Action.GET), sourceIp));
                     break;
+                //更新消费者偏移
                 case RequestCode.UPDATE_CONSUMER_OFFSET:
                     final UpdateConsumerOffsetRequestHeader updateConsumerOffsetRequestHeader =
                         command.decodeCommandCustomHeader(UpdateConsumerOffsetRequestHeader.class);
@@ -291,6 +306,7 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                     group = Resource.ofGroup(updateConsumerOffsetRequestHeader.getConsumerGroup());
                     result.add(DefaultAuthorizationContext.of(subject, group, Arrays.asList(Action.SUB, Action.UPDATE), sourceIp));
                     break;
+                //用于批量消息处理时的消息锁定
                 case RequestCode.LOCK_BATCH_MQ:
                     LockBatchRequestBody lockBatchRequestBody = LockBatchRequestBody.decode(command.getBody(), LockBatchRequestBody.class);
                     group = Resource.ofGroup(lockBatchRequestBody.getConsumerGroup());
@@ -305,6 +321,7 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                         }
                     }
                     break;
+                //用于批量消息处理时的消息锁定
                 case RequestCode.UNLOCK_BATCH_MQ:
                     UnlockBatchRequestBody unlockBatchRequestBody = LockBatchRequestBody.decode(command.getBody(), UnlockBatchRequestBody.class);
                     group = Resource.ofGroup(unlockBatchRequestBody.getConsumerGroup());
@@ -328,15 +345,19 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                     r.setChannelId(context.channel().id().asLongText());
                     r.setRpcCode(String.valueOf(command.getCode()));
                 });
+                System.out.println("aaa找到授权"+command.getCode() + "对应的授权上下文为:" + result);
+            }else {
+                System.out.println("aaa没有找到对应的授权上下文，可能是因为没有注册相关的请求头或者请求头不需要授权。");
             }
         } catch (AuthorizationException ex) {
             throw ex;
         } catch (Throwable t) {
             throw new AuthorizationException("parse authorization context error.", t);
         }
+        System.out.println("=====================下一次请求=======================");
         return result;
     }
-
+    //构建请求所需要的授权
     private List<DefaultAuthorizationContext> buildContextByAnnotation(Subject subject, RemotingCommand request,
         String sourceIp) throws Exception {
         List<DefaultAuthorizationContext> result = new ArrayList<>();
@@ -353,13 +374,16 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
         Resource resource = null;
         if (resourceType == ResourceType.CLUSTER) {
             resource = Resource.ofCluster(authConfig.getClusterName());
+            System.out.println(resource);
         }
 
         Field[] fields = clazz.getDeclaredFields();
         if (ArrayUtils.isNotEmpty(fields)) {
             for (Field field : fields) {
+                //跳过不需要授权的字段
                 RocketMQResource rocketMQResource = field.getAnnotation(RocketMQResource.class);
                 if (rocketMQResource == null) {
+                    System.out.println("字段不需要授权，跳过了");
                     continue;
                 }
                 field.setAccessible(true);
@@ -379,9 +403,11 @@ public class DefaultAuthorizationContextBuilder implements AuthorizationContextB
                     for (String resourceValue : resourceValues) {
                         if (resourceType == ResourceType.TOPIC && NamespaceUtil.isRetryTopic(resourceValue)) {
                             resource = Resource.ofGroup(resourceValue);
+                            System.out.println(resource);
                             result.add(DefaultAuthorizationContext.of(subject, resource, Arrays.asList(actions), sourceIp));
                         } else {
                             resource = Resource.of(resourceType, resourceValue, ResourcePattern.LITERAL);
+                            System.out.println(resource);
                             result.add(DefaultAuthorizationContext.of(subject, resource, Arrays.asList(actions), sourceIp));
                         }
                     }

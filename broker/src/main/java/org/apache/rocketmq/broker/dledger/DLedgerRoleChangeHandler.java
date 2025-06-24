@@ -116,6 +116,7 @@ public class DLedgerRoleChangeHandler implements DLedgerLeaderElector.RoleChange
                         if (System.currentTimeMillis() - lastSyncTimeMs > 10 * 1000) {
                             brokerController.getSlaveSynchronize().syncAll();
                             lastSyncTimeMs = System.currentTimeMillis();
+                            System.out.println("DLedgerRoleChangeHandler syncAll cost: " +lastSyncTimeMs);
                         }
                         //timer checkpoint, latency-sensitive, so sync it more frequently
                         brokerController.getSlaveSynchronize().syncTimerCheckPoint();

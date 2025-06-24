@@ -100,6 +100,7 @@ public class DefaultRequestProcessor implements NettyRequestProcessor {
                 RemotingHelper.parseChannelRemoteAddr(ctx.channel()),
                 request);
         }
+        System.out.println(request.getCode());
 
         switch (request.getCode()) {
             case RequestCode.PUT_KV_CONFIG:

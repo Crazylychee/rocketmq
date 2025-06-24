@@ -36,6 +36,7 @@ public class RequestHeaderRegistry {
         return RequestHeaderRegistryHolder.INSTANCE;
     }
 
+    //这段代码的作用是在应用程序启动时，通过反射机制扫描指定包下的所有实现了 CommandCustomHeader 接口的类，并将这些类注册到系统中
     public void initialize() {
         Reflections reflections = new Reflections(new ConfigurationBuilder()
             .setUrls(ClasspathHelper.forPackage(PACKAGE_NAME))

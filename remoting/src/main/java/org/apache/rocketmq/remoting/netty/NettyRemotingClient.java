@@ -271,8 +271,8 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
             };
             this.timer.newTimeout(timerTaskScanAvailableNameSrv, 0, TimeUnit.MILLISECONDS);
         }
-        
-        
+
+
     }
 
     private Map.Entry<String, SocksProxyConfig> getProxy(String addr) {
@@ -645,7 +645,12 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         if (channelFuture == null) {
             return null;
         }
-        return channelFuture.awaitUninterruptibly().channel();
+        Channel channel = channelFuture.awaitUninterruptibly().channel();
+        if (channel == null || !channel.isActive()) {
+            System.out.println("连接创建失败: " + addr);
+        }
+        return channel;
+//        return channelFuture.awaitUninterruptibly().channel();
     }
 
     private ChannelFuture getAndCreateNameserverChannelAsync() throws InterruptedException {
@@ -708,6 +713,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                 }
                 return createChannel(addr).getChannelFuture();
             } catch (Exception e) {
+                System.out.println(e);
                 LOGGER.error("createChannel: create channel exception", e);
             } finally {
                 this.lockChannelTables.unlock();

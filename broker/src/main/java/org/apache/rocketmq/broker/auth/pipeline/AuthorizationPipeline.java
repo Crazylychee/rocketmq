@@ -43,6 +43,16 @@ public class AuthorizationPipeline implements RequestPipeline {
         this.evaluator = AuthorizationFactory.getEvaluator(authConfig);
     }
 
+    /**
+     * 访问 Channel：可以通过 ChannelHandlerContext 获取与之关联的 Channel，从而进行读写操作。
+     * 执行 I/O 操作：提供了方法来执行各种 I/O 操作，如写数据、刷新缓冲区、关闭 Channel 等。
+     * 事件传播：允许在 ChannelPipeline 中传播事件，例如调用 fireChannelRead 来将数据传递给下一个处理器。
+     * 访问 ChannelPipeline：可以通过 ChannelHandlerContext 获取与之关联的 ChannelPipeline，从而添加、删除或获取处理器。
+     * 绑定属性：可以绑定属性到 ChannelHandlerContext 上，以便在处理过程中共享数据。
+     * @param ctx
+     * @param request
+     * @throws Exception
+     */
     @Override
     public void execute(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
         if (!authConfig.isAuthorizationEnabled()) {

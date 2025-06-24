@@ -48,7 +48,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-
+//用于将旧版本的访问控制列表（ACL）配置迁移到新的认证和授权系统中
 public class AuthMigrator {
 
     protected static final Logger LOG = LoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);

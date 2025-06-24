@@ -41,7 +41,7 @@ import org.apache.rocketmq.auth.config.AuthConfig;
 import org.apache.rocketmq.common.config.ConfigRocksDBStorage;
 import org.apache.rocketmq.common.thread.ThreadPoolMonitor;
 import org.rocksdb.RocksIterator;
-
+//授权类
 public class LocalAuthorizationMetadataProvider implements AuthorizationMetadataProvider {
 
     private ConfigRocksDBStorage storage;

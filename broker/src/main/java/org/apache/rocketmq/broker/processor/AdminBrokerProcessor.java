@@ -253,6 +253,14 @@ public class AdminBrokerProcessor implements NettyRequestProcessor {
     @Override
     public RemotingCommand processRequest(ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
+
+//        if (request.getCode() > 0) {
+//            try {
+//                throw new RemotingCommandException("request code must be less than or equal to 0, but got " + request.getCode());
+//            }catch (Exception e){
+//                e.printStackTrace();
+//            }
+//        }
         switch (request.getCode()) {
             case RequestCode.UPDATE_AND_CREATE_TOPIC:
                 return this.updateAndCreateTopic(ctx, request);
@@ -549,12 +557,15 @@ public class AdminBrokerProcessor implements NettyRequestProcessor {
 
         long executionTime;
         try {
+            // 1. 验证主题名称合法性
             TopicValidator.ValidateTopicResult result = TopicValidator.validateTopic(topic);
             if (!result.isValid()) {
                 response.setCode(ResponseCode.INVALID_PARAMETER);
                 response.setRemark(result.getRemark());
                 return response;
             }
+
+            // 2. 检查是否与系统主题冲突 (如果配置要求检查)
             if (brokerController.getBrokerConfig().isValidateSystemTopicWhenUpdateTopic()) {
                 if (TopicValidator.isSystemTopic(topic)) {
                     response.setCode(ResponseCode.INVALID_PARAMETER);
@@ -563,6 +574,7 @@ public class AdminBrokerProcessor implements NettyRequestProcessor {
                 }
             }
 
+            // 3. 创建或更新 TopicConfig 对象
             TopicConfig topicConfig = new TopicConfig(topic);
             topicConfig.setReadQueueNums(requestHeader.getReadQueueNums());
             topicConfig.setWriteQueueNums(requestHeader.getWriteQueueNums());
@@ -571,10 +583,10 @@ public class AdminBrokerProcessor implements NettyRequestProcessor {
             topicConfig.setTopicSysFlag(requestHeader.getTopicSysFlag() == null ? 0 : requestHeader.getTopicSysFlag());
             topicConfig.setOrder(requestHeader.getOrder());
             String attributesModification = requestHeader.getAttributes();
-            topicConfig.setAttributes(AttributeParser.parseToMap(attributesModification));
+            topicConfig.setAttributes(AttributeParser.parseToMap(attributesModification)); // 解析属性字符串为 Map
 
+            // 4. 检查混合消息类型是否被禁用 (如果配置了不支持)
             if (!brokerController.getBrokerConfig().isEnableMixedMessageType() && topicConfig.getAttributes() != null) {
-                // Get attribute by key with prefix sign
                 String msgTypeAttrKey = AttributeParser.ATTR_ADD_PLUS_SIGN + TopicAttributes.TOPIC_MESSAGE_TYPE_ATTRIBUTE.getName();
                 String msgTypeAttrValue = topicConfig.getAttributes().get(msgTypeAttrKey);
                 if (msgTypeAttrValue != null && msgTypeAttrValue.equals(TopicMessageType.MIXED.getValue())) {
@@ -584,19 +596,24 @@ public class AdminBrokerProcessor implements NettyRequestProcessor {
                 }
             }
 
+            // 5. 检查是否是幂等请求 (配置未改变)
             if (topicConfig.equals(this.brokerController.getTopicConfigManager().getTopicConfigTable().get(topic))) {
-                LOGGER.info("Broker receive request to update or create topic={}, but topicConfig has  no changes , so idempotent, caller address={}",
-                    requestHeader.getTopic(), RemotingHelper.parseChannelRemoteAddr(ctx.channel()));
+                LOGGER.info("Broker receive request to update or create topic={}, but topicConfig has no changes, so idempotent, caller address={}",
+                        requestHeader.getTopic(), RemotingHelper.parseChannelRemoteAddr(ctx.channel()));
                 response.setCode(ResponseCode.SUCCESS);
                 return response;
             }
 
+            // 6. 更新主题配置到持久化存储 (TopicConfigManager)
             this.brokerController.getTopicConfigManager().updateTopicConfig(topicConfig);
+
+            // 7. 注册主题信息到 NameServer (根据配置选择注册方式)
             if (brokerController.getBrokerConfig().isEnableSingleTopicRegister()) {
                 this.brokerController.registerSingleTopicAll(topicConfig);
             } else {
                 this.brokerController.registerIncrementBrokerData(topicConfig, this.brokerController.getTopicConfigManager().getDataVersion());
             }
+
             response.setCode(ResponseCode.SUCCESS);
         } catch (Exception e) {
             LOGGER.error("Update / create topic failed for [{}]", request, e);
@@ -604,13 +621,14 @@ public class AdminBrokerProcessor implements NettyRequestProcessor {
             response.setRemark(e.getMessage());
             return response;
         } finally {
+            // 8. 计算并记录执行耗时
             executionTime = System.currentTimeMillis() - startTime;
             InvocationStatus status = response.getCode() == ResponseCode.SUCCESS ?
-                InvocationStatus.SUCCESS : InvocationStatus.FAILURE;
+                    InvocationStatus.SUCCESS : InvocationStatus.FAILURE;
             Attributes attributes = BrokerMetricsManager.newAttributesBuilder()
-                .put(LABEL_INVOCATION_STATUS, status.getName())
-                .put(LABEL_IS_SYSTEM, TopicValidator.isSystemTopic(topic))
-                .build();
+                    .put(LABEL_INVOCATION_STATUS, status.getName())
+                    .put(LABEL_IS_SYSTEM, TopicValidator.isSystemTopic(topic))
+                    .build();
             BrokerMetricsManager.topicCreateExecuteTime.record(executionTime, attributes);
         }
         LOGGER.info("executionTime of create topic:{} is {} ms", topic, executionTime);

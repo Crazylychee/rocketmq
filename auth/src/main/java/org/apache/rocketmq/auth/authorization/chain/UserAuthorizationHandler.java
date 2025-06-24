@@ -40,15 +40,19 @@ public class UserAuthorizationHandler implements Handler<DefaultAuthorizationCon
         this.authenticationMetadataProvider = AuthenticationFactory.getMetadataProvider(config, metadataService);
     }
 
+    //主要功能是根据授权上下文中的主体类型和用户类型进行不同的处理
     @Override
     public CompletableFuture<Void> handle(DefaultAuthorizationContext context, HandlerChain<DefaultAuthorizationContext, CompletableFuture<Void>> chain) {
         if (!context.getSubject().isSubject(SubjectType.USER)) {
             return chain.handle(context);
         }
         return this.getUser(context.getSubject()).thenCompose(user -> {
+            //如果用户类型是超级用户（UserType.SUPER），返回一个已完成的 CompletableFuture，表示不需要进一步处理。
             if (user.getUserType() == UserType.SUPER) {
                 return CompletableFuture.completedFuture(null);
             }
+            System.out.println(user);
+            //如果用户类型不是超级用户，则将用户信息设置到授权上下文中，并继续处理链中的下一个处理器
             return chain.handle(context);
         });
     }

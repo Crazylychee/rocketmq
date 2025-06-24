@@ -50,6 +50,16 @@ public class DefaultAuthorizationContext extends AuthorizationContext {
         return context;
     }
 
+    @Override
+    public String toString() {
+        return "DefaultAuthorizationContext{" +
+                "subject=" + subject.getSubjectType().getName() +
+                ", resource=" + resource.getResourceName() +
+                ", actions=" + actions +
+                ", sourceIp='" + sourceIp + '\'' +
+                '}';
+    }
+
     public String getSubjectKey() {
         return this.subject != null ? this.subject.getSubjectKey() : null;
     }
