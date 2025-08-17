@@ -479,9 +479,10 @@ public class BrokerConfig extends BrokerIdentity {
 
     private boolean allowMetadataIncrementalSync = false;
 
-    private int snapshotIntervalMinutes = 10;
+    private int snapshotIntervalSeconds = 30;
 
     private int metadataIncrementalSyncThreadPoolNums = 1;
+
     private int incrementalSyncConsumerLagThreshold = 50;
 
     public int getMetadataIncrementalSyncThreadPoolNums() {
@@ -492,12 +493,12 @@ public class BrokerConfig extends BrokerIdentity {
         this.metadataIncrementalSyncThreadPoolNums = metadataIncrementalSyncThreadPoolNums;
     }
 
-    public int getSnapshotIntervalMinutes() {
-        return snapshotIntervalMinutes;
+    public int getSnapshotIntervalSeconds() {
+        return snapshotIntervalSeconds;
     }
 
-    public void setSnapshotIntervalMinutes(int snapshotIntervalMinutes) {
-        this.snapshotIntervalMinutes = snapshotIntervalMinutes;
+    public void setSnapshotIntervalSeconds(int snapshotIntervalSeconds) {
+        this.snapshotIntervalSeconds = snapshotIntervalSeconds;
     }
 
     public boolean isAllowMetadataIncrementalSync() {

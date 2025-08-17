@@ -813,7 +813,7 @@ public class BrokerController {
                 } catch (Throwable e) {
                     LOG.error("Failed to execute scheduled sync task", e);
                 }
-            }, 10000, 10000, TimeUnit.MILLISECONDS);
+            }, 10, this.brokerConfig.getSnapshotIntervalSeconds(), TimeUnit.SECONDS);
         }
 
         if (this.brokerConfig.isEnableControllerMode()) {
