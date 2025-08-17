@@ -1,15 +1,34 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.rocketmq.broker.sync;
 
 import com.alibaba.fastjson2.JSON;
 import org.apache.rocketmq.broker.BrokerController;
+import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.common.message.MessageClientIDSetter;
 import org.apache.rocketmq.common.message.MessageExtBrokerInner;
 import org.apache.rocketmq.common.sync.MetadataChangeInfo;
+import org.apache.rocketmq.logging.org.slf4j.Logger;
+import org.apache.rocketmq.logging.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.store.PutMessageResult;
 import org.apache.rocketmq.store.PutMessageStatus;
 
 public class SyncMessageProducer {
-
+    protected static final Logger LOG = LoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final BrokerController brokerController;
     private final int syncQueueId;
 
@@ -18,10 +37,9 @@ public class SyncMessageProducer {
         this.syncQueueId = 0;
     }
 
-    public boolean sendMetadataChange(final String targetTopic, MetadataChangeInfo changeInfo) {
+    public void sendMetadataChange(final String targetTopic, MetadataChangeInfo changeInfo) {
         try {
             byte[] body = JSON.toJSONBytes(changeInfo);
-
             MessageExtBrokerInner msg = new MessageExtBrokerInner();
             msg.setBrokerName(brokerController.getBrokerConfig().getBrokerName());
             msg.setTopic(targetTopic);
@@ -33,20 +51,12 @@ public class SyncMessageProducer {
             msg.setBornHost(brokerController.getStoreHost());
             msg.setQueueId(this.syncQueueId);
             msg.setMsgId(MessageClientIDSetter.createUniqID());
-
             PutMessageResult result = this.brokerController.getMessageStore().putMessage(msg);
-            System.out.println("发送了消息");
-            System.out.println(msg);
-
-            if (result.getPutMessageStatus() == PutMessageStatus.PUT_OK) {
-                return true;
-            } else {
-                System.out.println("Failed to put message: " + result.getPutMessageStatus());
-                return false;
+            if (result.getPutMessageStatus() != PutMessageStatus.PUT_OK) {
+                LOG.error("send metadata change failed, topic: {}, msgId: {}, status: {}", targetTopic, msg.getMsgId(), result.getPutMessageStatus().name());
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            LOG.error("send metadata change failed, topic: {}, msgId: {}", targetTopic, e);
         }
     }
 }
