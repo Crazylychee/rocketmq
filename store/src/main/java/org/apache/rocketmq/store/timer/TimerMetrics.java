@@ -45,6 +45,7 @@ import org.apache.rocketmq.common.MixAll;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.common.message.MessageConst;
 import org.apache.rocketmq.common.message.MessageExt;
+import org.apache.rocketmq.common.sync.MetadataChangeObserver;
 import org.apache.rocketmq.common.topic.TopicValidator;
 import org.apache.rocketmq.logging.org.slf4j.Logger;
 import org.apache.rocketmq.logging.org.slf4j.LoggerFactory;
@@ -55,6 +56,9 @@ public class TimerMetrics extends ConfigManager {
     private static final Logger log = LoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private static final long LOCK_TIMEOUT_MILLIS = 3000;
     private transient final Lock lock = new ReentrantLock();
+
+    private transient MetadataChangeObserver changeNotifier;
+
 
     private final ConcurrentMap<String, Metric> timingCount =
             new ConcurrentHashMap<>(1024);
@@ -80,6 +84,12 @@ public class TimerMetrics extends ConfigManager {
         this.configPath = configPath;
     }
 
+    public TimerMetrics(String configPath, MetadataChangeObserver changeNotifier) {
+        this.configPath = configPath;
+        this.changeNotifier = changeNotifier;
+    }
+
+    // 更新某个时间周期的统计值
     public long updateDistPair(int period, int value) {
         Metric distPair = getDistPair(period);
         return distPair.getCount().addAndGet(value);
@@ -112,9 +122,22 @@ public class TimerMetrics extends ConfigManager {
             return pair;
         }
         pair = new Metric();
-        final Metric previous = timingCount.putIfAbsent(topic, pair);
-        if (null != previous) {
-            return previous;
+        final Metric[] previous = new Metric[1];
+        Metric finalPair = pair;
+        timingCount.compute(topic, (key, existingValue) -> {
+           if(null != existingValue) {
+               changeNotifier.onUpdated(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, topic, finalPair);
+               previous[0] = existingValue;
+               return existingValue;
+           }else{
+               changeNotifier.onCreated(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, topic, finalPair);
+               previous[0] = null;
+               return finalPair;
+           }
+
+        });
+        if (null != previous[0]) {
+            return previous[0];
         }
         return pair;
     }
@@ -318,4 +341,28 @@ public class TimerMetrics extends ConfigManager {
         }
     }
 
+    public ConcurrentMap<String, TimerMetrics.Metric> deepCopyTimingCountSnapshot() {
+        // 创建一个新的 ConcurrentMap 用于存储深拷贝后的数据
+        ConcurrentMap<String, TimerMetrics.Metric> snapshot = new ConcurrentHashMap<>(this.timingCount.size());
+
+        // 遍历原始的 timingCount Map
+        for (Map.Entry<String, TimerMetrics.Metric> entry : this.timingCount.entrySet()) {
+            String topic = entry.getKey();
+            TimerMetrics.Metric originalMetric = entry.getValue();
+
+            if (originalMetric != null) {
+                // 对每个 Metric 对象进行深拷贝
+                TimerMetrics.Metric clonedMetric = new TimerMetrics.Metric();
+                // 复制 count 的值
+                clonedMetric.setCount(new AtomicLong(originalMetric.getCount().get()));
+                // 复制时间戳
+                clonedMetric.setTimeStamp(originalMetric.getTimeStamp());
+
+                // 将拷贝后的对象放入新的 Map
+                snapshot.put(topic, clonedMetric);
+            }
+        }
+
+        return snapshot;
+    }
 }

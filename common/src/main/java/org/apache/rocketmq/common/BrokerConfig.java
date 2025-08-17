@@ -409,7 +409,7 @@ public class BrokerConfig extends BrokerIdentity {
     private boolean usePIDColdCtrStrategy = true;
     private long cgColdReadThreshold = 3 * 1024 * 1024;
     private long globalColdReadThreshold = 100 * 1024 * 1024;
-    
+
     /**
      * The interval to fetch namesrv addr, default value is 10 second
      */
@@ -476,6 +476,36 @@ public class BrokerConfig extends BrokerIdentity {
     private boolean enableRegisterProducer = true;
 
     private boolean enableCreateSysGroup = true;
+
+    private boolean allowMetadataIncrementalSync = false;
+
+    private int snapshotIntervalMinutes = 10;
+
+    private int metadataIncrementalSyncThreadPoolNums = 1;
+
+    public int getMetadataIncrementalSyncThreadPoolNums() {
+        return metadataIncrementalSyncThreadPoolNums;
+    }
+
+    public void setMetadataIncrementalSyncThreadPoolNums(int metadataIncrementalSyncThreadPoolNums) {
+        this.metadataIncrementalSyncThreadPoolNums = metadataIncrementalSyncThreadPoolNums;
+    }
+
+    public int getSnapshotIntervalMinutes() {
+        return snapshotIntervalMinutes;
+    }
+
+    public void setSnapshotIntervalMinutes(int snapshotIntervalMinutes) {
+        this.snapshotIntervalMinutes = snapshotIntervalMinutes;
+    }
+
+    public boolean isAllowMetadataIncrementalSync() {
+        return allowMetadataIncrementalSync;
+    }
+
+    public void setAllowMetadataIncrementalSync(boolean allowMetadataIncrementalSync) {
+        this.allowMetadataIncrementalSync = allowMetadataIncrementalSync;
+    }
 
     public String getConfigBlackList() {
         return configBlackList;
@@ -1953,11 +1983,11 @@ public class BrokerConfig extends BrokerIdentity {
     public void setUseStaticSubscription(boolean useStaticSubscription) {
         this.useStaticSubscription = useStaticSubscription;
     }
-    
+
     public long getFetchNamesrvAddrInterval() {
         return fetchNamesrvAddrInterval;
     }
-    
+
     public void setFetchNamesrvAddrInterval(final long fetchNamesrvAddrInterval) {
         this.fetchNamesrvAddrInterval = fetchNamesrvAddrInterval;
     }
