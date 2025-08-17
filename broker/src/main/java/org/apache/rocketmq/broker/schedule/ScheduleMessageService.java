@@ -50,7 +50,6 @@ import org.apache.rocketmq.common.utils.ThreadUtils;
 import org.apache.rocketmq.logging.org.slf4j.Logger;
 import org.apache.rocketmq.logging.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.remoting.protocol.DataVersion;
-import org.apache.rocketmq.remoting.protocol.subscription.SubscriptionGroupConfig;
 import org.apache.rocketmq.store.PutMessageResult;
 import org.apache.rocketmq.store.PutMessageStatus;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
@@ -118,10 +117,10 @@ public class ScheduleMessageService extends ConfigManager {
 
     private void updateOffset(int delayLevel, long offset) {
         this.offsetTable.compute(delayLevel, (key, existingConfig) -> {
-            if(existingConfig == null){
-                notifyDelayOffsetCreated(delayLevel,offset);
-            } else{
-                notifyDelayOffsetUpdated(delayLevel,offset);
+            if (existingConfig == null) {
+                notifyDelayOffsetCreated(delayLevel, offset);
+            } else {
+                notifyDelayOffsetUpdated(delayLevel, offset);
             }
             return offset;
         });

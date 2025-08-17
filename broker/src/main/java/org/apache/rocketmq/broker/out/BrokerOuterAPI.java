@@ -39,7 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.TypeReference;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
@@ -1653,13 +1652,12 @@ public class BrokerOuterAPI {
         String jsonString = new String(body, StandardCharsets.UTF_8);
         Pair<TopicConfigManager, Long> rawSnapshotData = JSON.parseObject(
                 jsonString,
-                new TypeReference<Pair<TopicConfigManager, Long>>() {}
+                new TypeReference<Pair<TopicConfigManager, Long>>() {
+                }
         );
 
         return rawSnapshotData;
     }
-
-
 
 
     public Triple<ConcurrentMap<String, ConcurrentMap<Integer, Long>>, DataVersion, Long> getConsumerOffsetSnapShot(String brokerAddr)
@@ -1680,7 +1678,8 @@ public class BrokerOuterAPI {
         Triple<LinkedHashMap<String, LinkedHashMap<Integer, Long>>, DataVersion, Long> rawSnapshotData =
                 JSON.parseObject(
                         jsonString,
-                        new TypeReference<Triple<LinkedHashMap<String, LinkedHashMap<Integer, Long>>, DataVersion, Long>>() {}
+                        new TypeReference<Triple<LinkedHashMap<String, LinkedHashMap<Integer, Long>>, DataVersion, Long>>() {
+                        }
                 );
 
         ConcurrentMap<String, ConcurrentMap<Integer, Long>> offsetTable = new ConcurrentHashMap<>();
@@ -1696,7 +1695,7 @@ public class BrokerOuterAPI {
                 JSON.to(DataVersion.class, rawSnapshotData.getMiddle());
 
         Long maxOffset =
-                JSON.to( Long.class, rawSnapshotData.getRight());
+                JSON.to(Long.class, rawSnapshotData.getRight());
 
         return Triple.of(offsetTable, dataVersion, maxOffset);
     }
@@ -1720,7 +1719,8 @@ public class BrokerOuterAPI {
         Triple<LinkedHashMap<String, Object>, DataVersion, Long> rawSnapshotData =
                 JSON.parseObject(
                         jsonString,
-                        new TypeReference<Triple<LinkedHashMap<String, Object>, DataVersion, Long>>() {}
+                        new TypeReference<Triple<LinkedHashMap<String, Object>, DataVersion, Long>>() {
+                        }
                 );
 
         ConcurrentMap<String, SubscriptionGroupConfig> subGroupTable = new ConcurrentHashMap<>();
@@ -1728,8 +1728,8 @@ public class BrokerOuterAPI {
         if (linkedMap != null) {
             for (Map.Entry<String, Object> entry : linkedMap.entrySet()) {
                 String groupName = entry.getKey();
-                 String configJson = JSON.toJSONString(entry.getValue());
-                 SubscriptionGroupConfig newConfig = JSON.parseObject(configJson, SubscriptionGroupConfig.class);
+                String configJson = JSON.toJSONString(entry.getValue());
+                SubscriptionGroupConfig newConfig = JSON.parseObject(configJson, SubscriptionGroupConfig.class);
 
                 subGroupTable.put(groupName, newConfig);
             }
@@ -1739,7 +1739,7 @@ public class BrokerOuterAPI {
                 JSON.to(DataVersion.class, rawSnapshotData.getMiddle());
 
         Long maxOffset =
-                JSON.to( Long.class, rawSnapshotData.getRight());
+                JSON.to(Long.class, rawSnapshotData.getRight());
 
         return Triple.of(subGroupTable, dataVersion, maxOffset);
     }
@@ -1762,10 +1762,10 @@ public class BrokerOuterAPI {
         String jsonString = new String(body, StandardCharsets.UTF_8);
         return JSON.parseObject(
                 jsonString,
-                new TypeReference<Pair<String, Long>>() {}
+                new TypeReference<Pair<String, Long>>() {
+                }
         );
     }
-
 
 
     public Triple<ConcurrentMap<String, TimerMetrics.Metric>, DataVersion, Long> getTopicMetricsSnapShot(String brokerAddr)
@@ -1787,7 +1787,8 @@ public class BrokerOuterAPI {
         Triple<LinkedHashMap<String, TimerMetrics.Metric>, DataVersion, Long> rawSnapshotData =
                 JSON.parseObject(
                         jsonString,
-                        new TypeReference<Triple<LinkedHashMap<String, TimerMetrics.Metric>, DataVersion, Long>>() {}
+                        new TypeReference<Triple<LinkedHashMap<String, TimerMetrics.Metric>, DataVersion, Long>>() {
+                        }
                 );
 
         ConcurrentMap<String, TimerMetrics.Metric> topicMetricsTable = new ConcurrentHashMap<>();
@@ -1800,7 +1801,7 @@ public class BrokerOuterAPI {
                 JSON.to(DataVersion.class, rawSnapshotData.getMiddle());
 
         Long maxOffset =
-                JSON.to( Long.class, rawSnapshotData.getRight());
+                JSON.to(Long.class, rawSnapshotData.getRight());
 
         return Triple.of(topicMetricsTable, dataVersion, maxOffset);
     }
@@ -1825,7 +1826,8 @@ public class BrokerOuterAPI {
         Pair<LinkedHashMap<String, LinkedHashMap<String, SetMessageRequestModeRequestBody>>, Long> rawSnapshotData =
                 JSON.parseObject(
                         jsonString,
-                        new TypeReference<Pair<LinkedHashMap<String, LinkedHashMap<String, SetMessageRequestModeRequestBody>>, Long>>() {}
+                        new TypeReference<Pair<LinkedHashMap<String, LinkedHashMap<String, SetMessageRequestModeRequestBody>>, Long>>() {
+                        }
                 );
 
         ConcurrentHashMap<String, ConcurrentHashMap<String, SetMessageRequestModeRequestBody>> requestModeMap = new ConcurrentHashMap<>();
@@ -1838,7 +1840,7 @@ public class BrokerOuterAPI {
         }
 
         Long maxOffset =
-                JSON.to( Long.class, rawSnapshotData.getObject2());
+                JSON.to(Long.class, rawSnapshotData.getObject2());
 
         return Pair.of(requestModeMap, maxOffset);
     }

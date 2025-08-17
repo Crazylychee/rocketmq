@@ -24,7 +24,6 @@ import org.apache.rocketmq.common.ConfigManager;
 import org.apache.rocketmq.common.topic.TopicValidator;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 import org.apache.rocketmq.remoting.protocol.body.SetMessageRequestModeRequestBody;
-import org.apache.rocketmq.store.exception.ConsumeQueueException;
 
 public class MessageRequestModeManager extends ConfigManager {
 
@@ -47,17 +46,17 @@ public class MessageRequestModeManager extends ConfigManager {
             consumerGroup2ModeMap = new ConcurrentHashMap<>();
             ConcurrentHashMap<String, SetMessageRequestModeRequestBody>[] pre = new ConcurrentHashMap[1];
             ConcurrentHashMap<String, SetMessageRequestModeRequestBody> finalConsumerGroup2ModeMap = consumerGroup2ModeMap;
-            messageRequestModeMap.compute(topic, (key , existingValue) -> {
-                        if(existingValue == null) {
-                            notifyMessageRequestModeCreated(requestBody);
-                            pre[0] = null;
-                            return finalConsumerGroup2ModeMap;
-                        }else{
-                            notifyMessageRequestModeUpdated(requestBody);
-                            pre[0] = existingValue;
-                            return existingValue;
-                        }
-                    });
+            messageRequestModeMap.compute(topic, (key, existingValue) -> {
+                if (existingValue == null) {
+                    notifyMessageRequestModeCreated(requestBody);
+                    pre[0] = null;
+                    return finalConsumerGroup2ModeMap;
+                } else {
+                    notifyMessageRequestModeUpdated(requestBody);
+                    pre[0] = existingValue;
+                    return existingValue;
+                }
+            });
             if (pre[0] != null) {
                 consumerGroup2ModeMap = pre[0];
             }

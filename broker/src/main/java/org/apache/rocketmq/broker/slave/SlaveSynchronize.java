@@ -17,7 +17,6 @@
 package org.apache.rocketmq.broker.slave;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -85,12 +84,12 @@ public class SlaveSynchronize {
     }
 
     public void start() {
-        if(!isIncrementSyncRunning) {
+        if (!isIncrementSyncRunning) {
             try {
                 isIncrementSyncRunning = true;
                 initIncrementSyncConsumer();
 
-                Callable<Map<MessageQueue, Long>> snapshotSyncCallback = () ->{
+                Callable<Map<MessageQueue, Long>> snapshotSyncCallback = () -> {
                     Map<MessageQueue, Long> messageQueueLongMap = null;
                     try {
                         messageQueueLongMap = syncAllMetadataSnapshots();
@@ -99,7 +98,7 @@ public class SlaveSynchronize {
                     }
                     return messageQueueLongMap;
                 };
-                startIncrementalSync((snapshotSyncCallback));
+                startIncrementalSync(snapshotSyncCallback);
 
                 LOGGER.info("Slave synchronize service started successfully.");
             } catch (Exception e) {
@@ -117,7 +116,7 @@ public class SlaveSynchronize {
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_SUBSCRIPTION_GROUP_SYNC);
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_DELAY_OFFSET_SYNC);
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_MESSAGE_MODE_SYNC);
-        if(brokerController.getMessageStoreConfig().isTimerWheelEnable()) {
+        if (brokerController.getMessageStoreConfig().isTimerWheelEnable()) {
             this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC);
         }
     }
@@ -167,14 +166,14 @@ public class SlaveSynchronize {
         long delayOffsetMaxOffset;
         long messageRequestModeMaxOffset;
         long timerMetricsMaxOffset;
-        try{
-             topicConfigMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_TOPIC_CONFIG_SYNC,0);
-             consumerOffsetMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_CONSUMER_OFFSET_SYNC,0);
-             subscriptionGroupMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_SUBSCRIPTION_GROUP_SYNC,0);
-             delayOffsetMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_DELAY_OFFSET_SYNC,0);
-             messageRequestModeMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_MESSAGE_MODE_SYNC,0);
-             timerMetricsMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC,0);
-        }catch (ConsumeQueueException e) {
+        try {
+            topicConfigMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_TOPIC_CONFIG_SYNC, 0);
+            consumerOffsetMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_CONSUMER_OFFSET_SYNC, 0);
+            subscriptionGroupMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_SUBSCRIPTION_GROUP_SYNC, 0);
+            delayOffsetMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_DELAY_OFFSET_SYNC, 0);
+            messageRequestModeMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_MESSAGE_MODE_SYNC, 0);
+            timerMetricsMaxOffset = brokerController.getMessageStore().getMaxOffsetInQueue(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, 0);
+        } catch (ConsumeQueueException e) {
             return true;
         }
         return (topicConfigMaxOffset - topicConfigSyncOffset) > threshold ||
@@ -186,7 +185,6 @@ public class SlaveSynchronize {
     }
 
     private void handleMetadataMessage(MessageExt msg) {
-        System.out.println(msg.getTopic());
         MetadataChangeInfo metadataChangeInfo = JSONObject.parseObject(new String(msg.getBody()), MetadataChangeInfo.class);
         switch (msg.getTopic()) {
             case TopicValidator.RMQ_SYS_TOPIC_CONFIG_SYNC:
@@ -235,7 +233,8 @@ public class SlaveSynchronize {
     }
 
     private void handleConsumerOffsetChangeInfo(MetadataChangeInfo metadataChangeInfo) {
-        ConcurrentMap<String/* topic@group */, ConcurrentMap<Integer, Long>> offsets =  JSONObject.parseObject(metadataChangeInfo.getMetadataValue(), new TypeReference<ConcurrentMap<String, ConcurrentMap<Integer, Long>>>() {});
+        ConcurrentMap<String/* topic@group */, ConcurrentMap<Integer, Long>> offsets = JSONObject.parseObject(metadataChangeInfo.getMetadataValue(), new TypeReference<ConcurrentMap<String, ConcurrentMap<Integer, Long>>>() {
+        });
         this.brokerController.getConsumerOffsetManager().getOffsetTable().putAll(offsets);
     }
 
@@ -273,12 +272,13 @@ public class SlaveSynchronize {
             case UPDATED:
                 ConcurrentHashMap<String, SetMessageRequestModeRequestBody> requestModeMap = new ConcurrentHashMap<>();
                 LinkedHashMap<String, SetMessageRequestModeRequestBody> linkedMap = JSONObject.parseObject(metadataChangeInfo.getMetadataValue(),
-                        new TypeReference<LinkedHashMap<String, SetMessageRequestModeRequestBody>>() {});
+                        new TypeReference<LinkedHashMap<String, SetMessageRequestModeRequestBody>>() {
+                        });
                 if (linkedMap != null) {
                     requestModeMap.putAll(linkedMap);
                 }
                 this.brokerController.getQueryAssignmentProcessor().getMessageRequestModeManager().getMessageRequestModeMap().put(
-                        metadataChangeInfo.getMetadataKey(),requestModeMap);
+                        metadataChangeInfo.getMetadataKey(), requestModeMap);
                 break;
             default:
                 break;
@@ -308,7 +308,7 @@ public class SlaveSynchronize {
         Pair<TopicConfigManager, Long> topicConfigSnapshot =
                 this.brokerController.getBrokerOuterAPI().getTopicConfigSnapShot(this.masterAddr);
         if (topicConfigSnapshot != null) {
-            if(this.topicConfigSyncOffset < topicConfigSnapshot.getObject2()) {
+            if (this.topicConfigSyncOffset < topicConfigSnapshot.getObject2()) {
                 this.brokerController.getTopicConfigManager().setTopicConfigTable(topicConfigSnapshot.getObject1().getTopicConfigTable());
                 this.brokerController.getTopicConfigManager().persist();
                 this.topicConfigSyncOffset = topicConfigSnapshot.getObject2();
@@ -317,10 +317,10 @@ public class SlaveSynchronize {
             LOGGER.info("Topic config synced. Pull will start from offset: {}", consumerOffsetSyncOffset);
         }
 
-        Triple<ConcurrentMap<String, ConcurrentMap<Integer, Long>>,DataVersion, Long> consumerOffsetSnapshot =
+        Triple<ConcurrentMap<String, ConcurrentMap<Integer, Long>>, DataVersion, Long> consumerOffsetSnapshot =
                 this.brokerController.getBrokerOuterAPI().getConsumerOffsetSnapShot(this.masterAddr);
         if (consumerOffsetSnapshot != null) {
-            if(this.consumerOffsetSyncOffset < consumerOffsetSnapshot.getRight()) {
+            if (this.consumerOffsetSyncOffset < consumerOffsetSnapshot.getRight()) {
                 this.brokerController.getConsumerOffsetManager().setOffsetTable(consumerOffsetSnapshot.getLeft());
                 this.brokerController.getConsumerOffsetManager().persist();
                 this.consumerOffsetSyncOffset = consumerOffsetSnapshot.getRight();
@@ -334,7 +334,7 @@ public class SlaveSynchronize {
                 this.brokerController.getBrokerOuterAPI().getSubscriptionGroupSnapShot(this.masterAddr);
         if (subscriptionGroupSnapshot != null) {
             this.brokerController.getSubscriptionGroupManager().setDataVersion(subscriptionGroupSnapshot.getMiddle());
-            if(this.subscriptionGroupSyncOffset < subscriptionGroupSnapshot.getRight()) {
+            if (this.subscriptionGroupSyncOffset < subscriptionGroupSnapshot.getRight()) {
                 this.brokerController.getSubscriptionGroupManager().setSubscriptionGroupTable(subscriptionGroupSnapshot.getLeft());
                 this.brokerController.getSubscriptionGroupManager().persist();
                 this.subscriptionGroupSyncOffset = subscriptionGroupSnapshot.getRight();
@@ -348,7 +348,7 @@ public class SlaveSynchronize {
         if (delayOffsetSnapshot != null) {
             MixAll.string2File(delayOffsetSnapshot.getObject1(), StorePathConfigHelper.getDelayOffsetStorePath(this.brokerController.getMessageStoreConfig().getStorePathRootDir()));
             this.brokerController.getScheduleMessageService().loadWhenSyncDelayOffset();
-            if(this.delayOffsetSyncOffset < delayOffsetSnapshot.getObject2()) {
+            if (this.delayOffsetSyncOffset < delayOffsetSnapshot.getObject2()) {
                 this.delayOffsetSyncOffset = delayOffsetSnapshot.getObject2();
                 result.put(new MessageQueue(TopicValidator.RMQ_SYS_DELAY_OFFSET_SYNC, brokerController.getBrokerConfig().getBrokerName(), 0), delayOffsetSyncOffset);
             }
@@ -359,7 +359,7 @@ public class SlaveSynchronize {
                 this.brokerController.getBrokerOuterAPI().getSetMessageRequestModeSnapShot(this.masterAddr);
         if (messageModeSnapshot != null) {
 
-            if(this.messageRequestModeSyncOffset < messageModeSnapshot.getObject2()) {
+            if (this.messageRequestModeSyncOffset < messageModeSnapshot.getObject2()) {
                 this.brokerController.getQueryAssignmentProcessor().getMessageRequestModeManager().setMessageRequestModeMap(messageModeSnapshot.getObject1());
                 this.brokerController.getQueryAssignmentProcessor().getMessageRequestModeManager().persist();
                 this.messageRequestModeSyncOffset = messageModeSnapshot.getObject2();
@@ -378,7 +378,7 @@ public class SlaveSynchronize {
                     this.brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().getTimingCount().clear();
                     this.brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().getTimingCount().putAll(timerMetricsSnapshot.getLeft());
                     this.brokerController.getMessageStore().getTimerMessageStore().getTimerMetrics().persist();
-                    if(this.timerMetricsSyncOffset < timerMetricsSnapshot.getRight()) {
+                    if (this.timerMetricsSyncOffset < timerMetricsSnapshot.getRight()) {
                         this.timerMetricsSyncOffset = timerMetricsSnapshot.getRight();
                         result.put(new MessageQueue(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, brokerController.getBrokerConfig().getBrokerName(), 0), timerMetricsSyncOffset);
                     }

@@ -16,7 +16,6 @@
  */
 package org.apache.rocketmq.broker.topic;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -54,7 +53,6 @@ import org.apache.rocketmq.remoting.protocol.body.KVTable;
 import org.apache.rocketmq.remoting.protocol.body.TopicConfigAndMappingSerializeWrapper;
 import org.apache.rocketmq.remoting.protocol.body.TopicConfigSerializeWrapper;
 import org.apache.rocketmq.remoting.protocol.statictopic.TopicQueueMappingInfo;
-import org.apache.rocketmq.store.exception.ConsumeQueueException;
 import org.apache.rocketmq.store.timer.TimerMessageStore;
 import org.apache.rocketmq.tieredstore.TieredMessageStore;
 import org.apache.rocketmq.tieredstore.metadata.MetadataStore;

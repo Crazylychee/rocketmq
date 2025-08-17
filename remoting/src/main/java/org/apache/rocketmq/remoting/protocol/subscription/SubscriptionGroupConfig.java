@@ -25,7 +25,7 @@ import java.util.Set;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.rocketmq.common.MixAll;
 
-public class SubscriptionGroupConfig implements Cloneable{
+public class SubscriptionGroupConfig implements Cloneable {
 
     private String groupName;
 
@@ -225,7 +225,7 @@ public class SubscriptionGroupConfig implements Cloneable{
     @Override
     public SubscriptionGroupConfig clone() throws CloneNotSupportedException {
         SubscriptionGroupConfig clone = (SubscriptionGroupConfig) super.clone();
-        if(subscriptionDataSet != null){
+        if (subscriptionDataSet != null) {
             clone.setSubscriptionDataSet(new HashSet<>(subscriptionDataSet));
         }
         if (attributes != null) {

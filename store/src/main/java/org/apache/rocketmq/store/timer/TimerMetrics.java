@@ -124,15 +124,15 @@ public class TimerMetrics extends ConfigManager {
         final Metric[] previous = new Metric[1];
         Metric finalPair = pair;
         timingCount.compute(topic, (key, existingValue) -> {
-           if(null != existingValue) {
-               changeNotifier.onUpdated(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, topic, finalPair);
-               previous[0] = existingValue;
-               return existingValue;
-           }else{
-               changeNotifier.onCreated(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, topic, finalPair);
-               previous[0] = null;
-               return finalPair;
-           }
+            if (null != existingValue) {
+                changeNotifier.onUpdated(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, topic, finalPair);
+                previous[0] = existingValue;
+                return existingValue;
+            } else {
+                changeNotifier.onCreated(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC, topic, finalPair);
+                previous[0] = null;
+                return finalPair;
+            }
 
         });
         if (null != previous[0]) {

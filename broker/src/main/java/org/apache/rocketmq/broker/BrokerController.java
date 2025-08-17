@@ -177,7 +177,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -431,7 +430,7 @@ public class BrokerController {
         this.loadBalanceThreadPoolQueue = new LinkedBlockingQueue<>(this.brokerConfig.getLoadBalanceThreadPoolQueueCapacity());
 
         this.brokerFastFailure = new BrokerFastFailure(this);
-        if(this.brokerConfig.isAllowMetadataIncrementalSync() && this.brokerConfig.getBrokerId() == MixAll.MASTER_ID) {
+        if (this.brokerConfig.isAllowMetadataIncrementalSync() && this.brokerConfig.getBrokerId() == MixAll.MASTER_ID) {
             SyncMessageProducer syncMessageProducer = new SyncMessageProducer(this);
             this.metadataIncrementalSyncThreadPoolQueue = new LinkedBlockingQueue<>(10);
             metadataChangeObserver = new SyncMetadataChangeObserver(syncMessageProducer);
@@ -645,14 +644,14 @@ public class BrokerController {
             this.loadBalanceThreadPoolQueue,
             new ThreadFactoryImpl("LoadBalanceProcessorThread_", getBrokerIdentity()));
 
-        if(this.brokerConfig.isAllowMetadataIncrementalSync() && this.brokerConfig.getBrokerId() == 0L) {
+        if (this.brokerConfig.isAllowMetadataIncrementalSync() && this.brokerConfig.getBrokerId() == 0L) {
             this.metadataIncrementalSyncExecutor = ThreadUtils.newThreadPoolExecutor(
-                this.brokerConfig.getMetadataIncrementalSyncThreadPoolNums(),
-                this.brokerConfig.getMetadataIncrementalSyncThreadPoolNums(),
-                1000 * 60,
-                TimeUnit.MILLISECONDS,
-                this.metadataIncrementalSyncThreadPoolQueue,
-                new ThreadFactoryImpl("MetadataIncrementalSyncThread_", getBrokerIdentity()));
+                    this.brokerConfig.getMetadataIncrementalSyncThreadPoolNums(),
+                    this.brokerConfig.getMetadataIncrementalSyncThreadPoolNums(),
+                    1000 * 60,
+                    TimeUnit.MILLISECONDS,
+                    this.metadataIncrementalSyncThreadPoolQueue,
+                    new ThreadFactoryImpl("MetadataIncrementalSyncThread_", getBrokerIdentity()));
         }
 
         this.syncBrokerMemberGroupExecutorService = ThreadUtils.newScheduledThreadPool(1,
@@ -765,8 +764,11 @@ public class BrokerController {
                     public void run() {
                         try {
                             if (System.currentTimeMillis() - lastSyncTimeMs > 60 * 1000) {
-                                BrokerController.this.getSlaveSynchronize().syncAll();
-                                BrokerController.this.getSlaveSynchronize().start();
+                                if (!getBrokerConfig().isAllowMetadataIncrementalSync()) {
+                                    BrokerController.this.getSlaveSynchronize().syncAll();
+                                } else {
+                                    BrokerController.this.getSlaveSynchronize().start();
+                                }
                                 lastSyncTimeMs = System.currentTimeMillis();
                             }
 
@@ -794,7 +796,7 @@ public class BrokerController {
                 }, 1000 * 10, 1000 * 60, TimeUnit.MILLISECONDS);
             }
         }
-        if(this.brokerConfig.isAllowMetadataIncrementalSync() && this.brokerConfig.getBrokerId() == 0L){
+        if (this.brokerConfig.isAllowMetadataIncrementalSync() && this.brokerConfig.getBrokerId() == 0L) {
 
             this.scheduledExecutorService.scheduleAtFixedRate(() -> {
                 try {
