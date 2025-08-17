@@ -37,6 +37,7 @@ import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.broker.loadbalance.MessageRequestModeManager;
 import org.apache.rocketmq.broker.subscription.SubscriptionGroupManager;
 import org.apache.rocketmq.broker.topic.TopicConfigManager;
+import org.apache.rocketmq.client.consumer.AllocateMessageQueueStrategy;
 import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.MixAll;
@@ -109,13 +110,14 @@ public class SlaveSynchronize {
     }
 
     private void initIncrementSyncConsumer() throws MQClientException {
-        this.incrementSyncConsumer = new DefaultLitePullConsumer("slave_sync_consumer_group");
+        this.incrementSyncConsumer = new DefaultLitePullConsumer(MixAll.SLAVE_INCREMENT_SYNC_CONSUMER_GROUP);
         this.incrementSyncConsumer.setNamesrvAddr(this.brokerController.getBrokerConfig().getNamesrvAddr());
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_TOPIC_CONFIG_SYNC);
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_CONSUMER_OFFSET_SYNC);
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_SUBSCRIPTION_GROUP_SYNC);
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_DELAY_OFFSET_SYNC);
         this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_MESSAGE_MODE_SYNC);
+
         if (brokerController.getMessageStoreConfig().isTimerWheelEnable()) {
             this.incrementSyncConsumer.subscribe(TopicValidator.RMQ_SYS_TIMER_METRICS_SYNC);
         }
@@ -132,8 +134,7 @@ public class SlaveSynchronize {
                         try {
                             handleMetadataMessage(msg);
                         } catch (Exception e) {
-                            System.err.println("Error processing message: " + msg.getMsgId() + ", " + e.getMessage());
-                            // TODO: 可以在这里实现重试逻辑，或者记录日志
+                            LOGGER.error("Failed to handle metadata message", e);
                         }
                     }
                 }
@@ -159,7 +160,7 @@ public class SlaveSynchronize {
     }
 
     private boolean isLaggingTooFarBehind() {
-        final long threshold = 100;
+        final int threshold = brokerController.getBrokerConfig().getIncrementalSyncConsumerLagThreshold();
         long topicConfigMaxOffset;
         long consumerOffsetMaxOffset;
         long subscriptionGroupMaxOffset;

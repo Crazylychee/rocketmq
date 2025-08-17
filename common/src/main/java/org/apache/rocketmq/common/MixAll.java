@@ -116,6 +116,7 @@ public class MixAll {
     public static final String ZONE_MODE = "__ZONE_MODE";
     public final static String RPC_REQUEST_HEADER_NAMESPACED_FIELD = "nsd";
     public final static String RPC_REQUEST_HEADER_NAMESPACE_FIELD = "ns";
+    public static final String SLAVE_INCREMENT_SYNC_CONSUMER_GROUP = "slave_sync_consumer_group";
 
     private static final Logger log = LoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
     public static final String LOGICAL_QUEUE_MOCK_BROKER_PREFIX = "__syslo__";

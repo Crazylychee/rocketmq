@@ -482,6 +482,7 @@ public class BrokerConfig extends BrokerIdentity {
     private int snapshotIntervalMinutes = 10;
 
     private int metadataIncrementalSyncThreadPoolNums = 1;
+    private int incrementalSyncConsumerLagThreshold = 50;
 
     public int getMetadataIncrementalSyncThreadPoolNums() {
         return metadataIncrementalSyncThreadPoolNums;
@@ -2182,5 +2183,13 @@ public class BrokerConfig extends BrokerIdentity {
 
     public void setSplitMetadataSize(int splitMetadataSize) {
         this.splitMetadataSize = splitMetadataSize;
+    }
+
+    public int getIncrementalSyncConsumerLagThreshold() {
+        return incrementalSyncConsumerLagThreshold;
+    }
+
+    public void setIncrementalSyncConsumerLagThreshold(int incrementalSyncConsumerLagThreshold) {
+        this.incrementalSyncConsumerLagThreshold = incrementalSyncConsumerLagThreshold;
     }
 }
