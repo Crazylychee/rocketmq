@@ -89,7 +89,6 @@ public class TimerMetrics extends ConfigManager {
         this.changeNotifier = changeNotifier;
     }
 
-    // 更新某个时间周期的统计值
     public long updateDistPair(int period, int value) {
         Metric distPair = getDistPair(period);
         return distPair.getCount().addAndGet(value);
@@ -342,23 +341,15 @@ public class TimerMetrics extends ConfigManager {
     }
 
     public ConcurrentMap<String, TimerMetrics.Metric> deepCopyTimingCountSnapshot() {
-        // 创建一个新的 ConcurrentMap 用于存储深拷贝后的数据
         ConcurrentMap<String, TimerMetrics.Metric> snapshot = new ConcurrentHashMap<>(this.timingCount.size());
-
-        // 遍历原始的 timingCount Map
         for (Map.Entry<String, TimerMetrics.Metric> entry : this.timingCount.entrySet()) {
             String topic = entry.getKey();
             TimerMetrics.Metric originalMetric = entry.getValue();
 
             if (originalMetric != null) {
-                // 对每个 Metric 对象进行深拷贝
                 TimerMetrics.Metric clonedMetric = new TimerMetrics.Metric();
-                // 复制 count 的值
                 clonedMetric.setCount(new AtomicLong(originalMetric.getCount().get()));
-                // 复制时间戳
                 clonedMetric.setTimeStamp(originalMetric.getTimeStamp());
-
-                // 将拷贝后的对象放入新的 Map
                 snapshot.put(topic, clonedMetric);
             }
         }
