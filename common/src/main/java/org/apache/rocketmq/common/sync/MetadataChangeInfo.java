@@ -33,7 +33,6 @@ public class MetadataChangeInfo {
         DELETED
     }
 
-    //这里元数据的键是配置类中哈希表的键
     public static MetadataChangeInfo created(String metadataKey, String metadataValue) {
         if (metadataKey == null || metadataValue == null) {
             throw new IllegalArgumentException("Metadata key and value cannot be null");

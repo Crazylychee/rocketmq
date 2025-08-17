@@ -29,7 +29,6 @@ public class SyncMetadataChangeObserver implements MetadataChangeObserver {
         this.producer = producer;
     }
 
-    //第一个参数是目标主题
     @Override
     public void onCreated(String targetTopic,String metadataKey, Object newMetadata) {
         this.producer.sendMetadataChange(targetTopic, MetadataChangeInfo.created(
