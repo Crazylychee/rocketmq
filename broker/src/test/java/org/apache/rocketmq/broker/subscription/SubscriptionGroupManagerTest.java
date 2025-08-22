@@ -75,7 +75,7 @@ public class SubscriptionGroupManagerTest {
         MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
         messageStoreConfig.setStorePathRootDir(basePath);
         Mockito.lenient().when(brokerControllerMock.getMessageStoreConfig()).thenReturn(messageStoreConfig);
-        if (notToBeExecuted()) {
+        if (!notToBeExecuted()) {
             Mockito.doReturn(syncMetadataChangeObserver).when(brokerControllerMock).getMetadataChangeObserver();
         }
     }
