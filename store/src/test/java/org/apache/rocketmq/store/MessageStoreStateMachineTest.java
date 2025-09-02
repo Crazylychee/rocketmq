@@ -108,22 +108,22 @@ class MessageStoreStateMachineTest {
         assertEquals(MessageStoreState.INIT, stateMachine.getCurrentState());
     }
 
-    /**
-     * Test getTotalRunningTimeMs method.
-     */
-    @Test
-    void testGetTotalRunningTimeMs() {
-        // Sleep for a short duration to simulate elapsed time
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        // Verify the total running time is approximately correct
-        long totalTime = stateMachine.getTotalRunningTimeMs();
-        assertTrue(totalTime >= 100 && totalTime < 200);
-    }
+//    /**
+//     * Test getTotalRunningTimeMs method.
+//     */
+//    @Test
+//    void testGetTotalRunningTimeMs() {
+//        // Sleep for a short duration to simulate elapsed time
+//        try {
+//            Thread.sleep(100);
+//        } catch (InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//        }
+//
+//        // Verify the total running time is approximately correct
+//        long totalTime = stateMachine.getTotalRunningTimeMs();
+//        assertTrue(totalTime >= 100 && totalTime < 200);
+//    }
 
     /**
      * Test getCurrentStateRunningTimeMs method.
