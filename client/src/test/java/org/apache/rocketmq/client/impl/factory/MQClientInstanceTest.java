@@ -32,6 +32,7 @@ import org.apache.rocketmq.client.impl.consumer.ProcessQueue;
 import org.apache.rocketmq.client.impl.consumer.RebalanceImpl;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.impl.producer.TopicPublishInfo;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.MixAll;
 import org.apache.rocketmq.common.message.MessageConst;
 import org.apache.rocketmq.common.message.MessageExt;
@@ -320,16 +321,16 @@ public class MQClientInstanceTest {
         assertTrue(mqClientInstance.sendHeartbeatToAllBrokerWithLock());
     }
 
-//    @Test
-//    public void testUpdateTopicRouteInfoFromNameServer() throws RemotingException, InterruptedException, MQClientException {
-//        brokerAddrTable.put(defaultBroker, createBrokerAddrMap());
-//        consumerTable.put(group, createMQConsumerInner());
-//        DefaultMQProducer defaultMQProducer = mock(DefaultMQProducer.class);
-//        TopicRouteData topicRouteData = createTopicRouteData();
-//        when(mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(anyLong())).thenReturn(topicRouteData);
-//        assertTrue(mqClientInstance.updateTopicRouteInfoFromNameServer(topic, true, defaultMQProducer));
-//        assertEquals(topicRouteData, topicRouteTable.get(topic));
-//    }
+    @Test
+    public void testUpdateTopicRouteInfoFromNameServer() throws RemotingException, InterruptedException, MQClientException {
+        brokerAddrTable.put(defaultBroker, createBrokerAddrMap());
+        consumerTable.put(group, createMQConsumerInner());
+        DefaultMQProducer defaultMQProducer = mock(DefaultMQProducer.class);
+        TopicRouteData topicRouteData = createTopicRouteData();
+        when(mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(anyLong())).thenReturn(topicRouteData);
+        assertTrue(mqClientInstance.updateTopicRouteInfoFromNameServer(topic, true, defaultMQProducer));
+        assertEquals(topicRouteData, topicRouteTable.get(topic));
+    }
 
     @Test
     public void testFindBrokerAddressInAdmin() {
