@@ -66,6 +66,7 @@ public class TimerMetrics extends ConfigManager {
     private final ConcurrentMap<Integer, Metric> timingDistribution =
             new ConcurrentHashMap<>(1024);
 
+    @SuppressWarnings("DoubleBraceInitialization")
     public List<Integer> timerDist = new ArrayList<Integer>() {{
             add(5);
             add(60);
