@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.broker.BrokerController;
-import org.apache.rocketmq.broker.metrics.BrokerMetricsManager;
+
 import org.apache.rocketmq.common.ConfigManager;
 import org.apache.rocketmq.common.MixAll;
 import org.apache.rocketmq.common.ThreadFactoryImpl;
@@ -116,11 +116,26 @@ public class ScheduleMessageService extends ConfigManager {
     }
 
     private void updateOffset(int delayLevel, long offset) {
-        this.offsetTable.put(delayLevel, offset);
+        this.offsetTable.compute(delayLevel, (key, existingConfig) -> {
+            if (existingConfig == null) {
+                notifyDelayOffsetCreated(delayLevel, offset);
+            } else {
+                notifyDelayOffsetUpdated(delayLevel, offset);
+            }
+            return offset;
+        });
         if (versionChangeCounter.incrementAndGet() % brokerController.getBrokerConfig().getDelayOffsetUpdateVersionStep() == 0) {
             long stateMachineVersion = brokerController.getMessageStore() != null ? brokerController.getMessageStore().getStateMachineVersion() : 0;
             dataVersion.nextVersion(stateMachineVersion);
         }
+    }
+
+    private void notifyDelayOffsetCreated(int delayLevel, long offset) {
+        brokerController.getMetadataChangeObserver().onCreated(TopicValidator.RMQ_SYS_DELAY_OFFSET_SYNC, String.valueOf(delayLevel), offset);
+    }
+
+    private void notifyDelayOffsetUpdated(int delayLevel, long offset) {
+        brokerController.getMetadataChangeObserver().onUpdated(TopicValidator.RMQ_SYS_DELAY_OFFSET_SYNC, String.valueOf(delayLevel), offset);
     }
 
     public long computeDeliverTimestamp(final int delayLevel, final long storeTimestamp) {
@@ -266,6 +281,18 @@ public class ScheduleMessageService extends ConfigManager {
             return false;
         }
         return true;
+    }
+
+    public ConcurrentMap<Integer, Long> deepCopyDelayOffsetTable() {
+        ConcurrentMap<Integer, Long> newTable = new ConcurrentHashMap<>(this.offsetTable.size());
+        for (Map.Entry<Integer, Long> entry : this.offsetTable.entrySet()) {
+            Integer level = entry.getKey();
+            Long offset = entry.getValue();
+            if (offset != null) {
+                newTable.put(level, offset);
+            }
+        }
+        return newTable;
     }
 
     @Override
@@ -722,26 +749,26 @@ public class ScheduleMessageService extends ConfigManager {
                 ScheduleMessageService.this.brokerController.getBrokerStatsManager().incGroupGetNums(MixAll.SCHEDULE_CONSUMER_GROUP, TopicValidator.RMQ_SYS_SCHEDULE_TOPIC, result.getAppendMessageResult().getMsgNum());
                 ScheduleMessageService.this.brokerController.getBrokerStatsManager().incGroupGetSize(MixAll.SCHEDULE_CONSUMER_GROUP, TopicValidator.RMQ_SYS_SCHEDULE_TOPIC, result.getAppendMessageResult().getWroteBytes());
 
-                Attributes attributes = BrokerMetricsManager.newAttributesBuilder()
+                Attributes attributes = ScheduleMessageService.this.brokerController.getBrokerMetricsManager().newAttributesBuilder()
                     .put(LABEL_TOPIC, TopicValidator.RMQ_SYS_SCHEDULE_TOPIC)
                     .put(LABEL_CONSUMER_GROUP, MixAll.SCHEDULE_CONSUMER_GROUP)
                     .put(LABEL_IS_SYSTEM, true)
                     .build();
-                BrokerMetricsManager.messagesOutTotal.add(result.getAppendMessageResult().getMsgNum(), attributes);
-                BrokerMetricsManager.throughputOutTotal.add(result.getAppendMessageResult().getWroteBytes(), attributes);
+                ScheduleMessageService.this.brokerController.getBrokerMetricsManager().getMessagesOutTotal().add(result.getAppendMessageResult().getMsgNum(), attributes);
+                ScheduleMessageService.this.brokerController.getBrokerMetricsManager().getThroughputOutTotal().add(result.getAppendMessageResult().getWroteBytes(), attributes);
 
                 ScheduleMessageService.this.brokerController.getBrokerStatsManager().incTopicPutNums(this.topic, result.getAppendMessageResult().getMsgNum(), 1);
                 ScheduleMessageService.this.brokerController.getBrokerStatsManager().incTopicPutSize(this.topic, result.getAppendMessageResult().getWroteBytes());
                 ScheduleMessageService.this.brokerController.getBrokerStatsManager().incBrokerPutNums(this.topic, result.getAppendMessageResult().getMsgNum());
 
-                attributes = BrokerMetricsManager.newAttributesBuilder()
+                attributes = ScheduleMessageService.this.brokerController.getBrokerMetricsManager().newAttributesBuilder()
                     .put(LABEL_TOPIC, topic)
                     .put(LABEL_MESSAGE_TYPE, TopicMessageType.DELAY.getMetricsValue())
                     .put(LABEL_IS_SYSTEM, TopicValidator.isSystemTopic(topic))
                     .build();
-                BrokerMetricsManager.messagesInTotal.add(result.getAppendMessageResult().getMsgNum(), attributes);
-                BrokerMetricsManager.throughputInTotal.add(result.getAppendMessageResult().getWroteBytes(), attributes);
-                BrokerMetricsManager.messageSize.record(result.getAppendMessageResult().getWroteBytes() / result.getAppendMessageResult().getMsgNum(), attributes);
+                ScheduleMessageService.this.brokerController.getBrokerMetricsManager().getMessagesInTotal().add(result.getAppendMessageResult().getMsgNum(), attributes);
+                ScheduleMessageService.this.brokerController.getBrokerMetricsManager().getThroughputInTotal().add(result.getAppendMessageResult().getWroteBytes(), attributes);
+                ScheduleMessageService.this.brokerController.getBrokerMetricsManager().getMessageSize().record(result.getAppendMessageResult().getWroteBytes() / result.getAppendMessageResult().getMsgNum(), attributes);
             }
         }
 

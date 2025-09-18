@@ -31,9 +31,13 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -116,13 +120,27 @@ public class MixAll {
     public static final String ZONE_MODE = "__ZONE_MODE";
     public final static String RPC_REQUEST_HEADER_NAMESPACED_FIELD = "nsd";
     public final static String RPC_REQUEST_HEADER_NAMESPACE_FIELD = "ns";
+    public static final String SLAVE_INCREMENT_SYNC_CONSUMER_GROUP = "slave_sync_consumer_group";
 
     private static final Logger log = LoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
     public static final String LOGICAL_QUEUE_MOCK_BROKER_PREFIX = "__syslo__";
     public static final String METADATA_SCOPE_GLOBAL = "__global__";
     public static final String LOGICAL_QUEUE_MOCK_BROKER_NAME_NOT_EXIST = "__syslo__none__";
     public static final String MULTI_PATH_SPLITTER = System.getProperty("rocketmq.broker.multiPathSplitter", ",");
-
+    public static final String SNAPSHOT_NAME_TOPIC_CONFIG = "topic_config";
+    public static final String SNAPSHOT_NAME_SUBSCRIPTION_GROUP = "subscription_group";
+    public static final String SNAPSHOT_NAME_CONSUMER_OFFSET = "consumer_offset";
+    public static final String SNAPSHOT_NAME_DELAY_OFFSET = "delay_offset";
+    public static final String SNAPSHOT_NAME_MESSAGE_MODE = "message_mode";
+    public static final String SNAPSHOT_NAME_TIMER_METRICS = "timer_metrics";
+    public static final Set<String> SNAPSHOT_NAMES = ImmutableSet.of(
+            SNAPSHOT_NAME_TOPIC_CONFIG,
+            SNAPSHOT_NAME_SUBSCRIPTION_GROUP,
+            SNAPSHOT_NAME_CONSUMER_OFFSET,
+            SNAPSHOT_NAME_DELAY_OFFSET,
+            SNAPSHOT_NAME_MESSAGE_MODE,
+            SNAPSHOT_NAME_TIMER_METRICS
+    );
     private static final String OS = System.getProperty("os.name").toLowerCase();
 
     private static final Set<String> PREDEFINE_GROUP_SET = ImmutableSet.of(
@@ -237,6 +255,16 @@ public class MixAll {
             fileParent.mkdirs();
         }
         IOTinyUtils.writeStringToFile(file, str, DEFAULT_CHARSET);
+    }
+
+    public static synchronized void fsyncDirectory(Path dir) throws IOException {
+        if (!Files.isDirectory(dir)) {
+            throw new NotDirectoryException(dir.toString());
+        }
+
+        try (FileChannel fc = FileChannel.open(dir, StandardOpenOption.READ)) {
+            fc.force(true);
+        }
     }
 
     public static String file2String(final String fileName) throws IOException {
